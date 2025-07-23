@@ -150,18 +150,16 @@ namespace Landis.Extension.Succession.ForC
 
             // Clear list of cohorts to add after growth phase for later
             siteCohortsToAdd.Clear();
+
+            //Start of BBD handling
             IEnumerable<ActiveSite> sites = /* ModelCore.Landscape */ModelCore.Landscape.ActiveSites;
             
-            //modelCore.UI.WriteLine($"Testing: {sites.Count()}");
             foreach (ActiveSite site in sites) {
                 Dictionary<(ISpecies species, ushort age), int> biomassTransfer = new Dictionary<(ISpecies species, ushort age), int>();
-                var siteCohorts = SiteVars.Cohorts[site];
-                //var siteCohorts = PlugIn.ModelCore.GetSiteVar<Library.UniversalCohorts.SiteCohorts>("Succession.UniversalCohorts");
-                //var siteCohortsList = siteCohorts[site] as SiteCohorts;
-                //modelCore.UI.WriteLine($"Testing: {siteCohorts.Count()}");
-                foreach (var speciesCohorts in siteCohorts) {
+                SiteCohorts siteCohorts = SiteVars.Cohorts[site];
+                foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
                     string speciesName = speciesCohorts.Species.Name;
-                    foreach (var cohort in speciesCohorts) {
+                    foreach (ICohort cohort in speciesCohorts) {
                         if (site.Location.Row == 7 && site.Location.Column == 5) {
                             if (speciesName == "pinubank" || speciesName == "querelli") {
                                 modelCore.UI.WriteLine($"Site: ({site.Location.Row},{site.Location.Column}), Species: {speciesName}, Age: {cohort.Data.Age}, Biomass: {cohort.Data.Biomass}");
@@ -169,7 +167,6 @@ namespace Landis.Extension.Succession.ForC
                         }
                         if (speciesName == "pinubank") {
                             int transfer = (int)(cohort.Data.Biomass * 0.3);
-                            //cohort.Data.Biomass = 10;
                             if (transfer > 0) {
                                 cohort.ChangeBiomass(-transfer);
                                 biomassTransfer[(GetSpeciesByName("querelli"), cohort.Data.Age)] = transfer;
@@ -177,15 +174,15 @@ namespace Landis.Extension.Succession.ForC
                         }
                     }
                 }
-                foreach (var entry in biomassTransfer) {
-                    var (targetSpecies, age) = entry.Key;
+                foreach (KeyValuePair<(ISpecies species, ushort age), int> entry in biomassTransfer) {
+                    (ISpecies targetSpecies, ushort age) = entry.Key;
                     int transfer = entry.Value;
-                    foreach (var speciesCohorts in siteCohorts)
+                    foreach (ISpeciesCohorts speciesCohorts in siteCohorts)
                     {
                         bool found = false;
                         if (speciesCohorts.Species == targetSpecies)
                         {
-                            foreach (var cohort in speciesCohorts)
+                            foreach (ICohort cohort in speciesCohorts)
                             {
                                 if (cohort.Data.Age == age)
                                 {
@@ -194,16 +191,8 @@ namespace Landis.Extension.Succession.ForC
                                     break;
                                 }
                             }
-                            if (found) break;
-                            //NOTE: Will not be required after we switch from NECN-Succession to ForCS-Succession
-                            //Continuing to test with NECN-Succession will pose a problem,
-                            //but I can assume 20-80 leaf to wood biomass for the sake of it 
-                            System.Dynamic.ExpandoObject woodLeafBiomasses = new System.Dynamic.ExpandoObject();
-                            dynamic tempObject = woodLeafBiomasses;
-                            tempObject.WoodBiomass = transfer * 0.8;
-                            tempObject.LeafBiomass = transfer * 0.2;
-                            
-                            siteCohorts.AddNewCohort(targetSpecies, age, transfer, woodLeafBiomasses);
+                            if (found) break;                            
+                            siteCohorts.AddNewCohort(targetSpecies, age, transfer, new System.Dynamic.ExpandoObject());
                             break;
                         }
                     }

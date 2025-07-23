@@ -153,9 +153,8 @@ namespace Landis.Extension.Succession.ForC
 
             //Start of BBD handling
             IEnumerable<ActiveSite> sites = /* ModelCore.Landscape */ModelCore.Landscape.ActiveSites;
-            
+            Dictionary<ISpecies, Dictionary<ushort, int>> biomassTransfer = new Dictionary<ISpecies, Dictionary<ushort, int>>();
             foreach (ActiveSite site in sites) {
-                Dictionary<(ISpecies species, ushort age), int> biomassTransfer = new Dictionary<(ISpecies species, ushort age), int>();
                 SiteCohorts siteCohorts = SiteVars.Cohorts[site];
                 foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
                     string speciesName = speciesCohorts.Species.Name;
@@ -167,36 +166,43 @@ namespace Landis.Extension.Succession.ForC
                         }
                         if (speciesName == "pinubank") {
                             int transfer = (int)(cohort.Data.Biomass * 0.3);
-                            if (transfer > 0) {
-                                cohort.ChangeBiomass(-transfer);
-                                biomassTransfer[(GetSpeciesByName("querelli"), cohort.Data.Age)] = transfer;
+                            cohort.ChangeBiomass(-transfer);
+                            ISpecies targetSpecies = GetSpeciesByName("querelli");
+                            if (!biomassTransfer.ContainsKey(targetSpecies)) {
+                                biomassTransfer[targetSpecies] = new Dictionary<ushort, int>();
                             }
+                            biomassTransfer[targetSpecies][cohort.Data.Age] = transfer;
                         }
                     }
                 }
-                foreach (KeyValuePair<(ISpecies species, ushort age), int> entry in biomassTransfer) {
-                    (ISpecies targetSpecies, ushort age) = entry.Key;
-                    int transfer = entry.Value;
+                foreach (KeyValuePair<ISpecies, Dictionary<ushort, int>> speciesEntry in biomassTransfer) {
+                    ISpecies targetSpecies = speciesEntry.Key;
                     foreach (ISpeciesCohorts speciesCohorts in siteCohorts)
                     {
-                        bool found = false;
                         if (speciesCohorts.Species == targetSpecies)
                         {
-                            foreach (ICohort cohort in speciesCohorts)
-                            {
-                                if (cohort.Data.Age == age)
+                            foreach (KeyValuePair<ushort, int> ageEntry in speciesEntry.Value) {
+                                ushort age = ageEntry.Key;
+                                int transfer = ageEntry.Value;
+                                bool found = false;
+                                foreach (ICohort cohort in speciesCohorts)
                                 {
-                                    cohort.ChangeBiomass(transfer);
-                                    found = true;
-                                    break;
+                                    if (cohort.Data.Age == age)
+                                    {
+                                        cohort.ChangeBiomass(transfer);
+                                        found = true;
+                                        break;
+                                    }
+                                }
+                                if (!found) {
+                                    siteCohorts.AddNewCohort(targetSpecies, age, transfer, new System.Dynamic.ExpandoObject());
                                 }
                             }
-                            if (found) break;                            
-                            siteCohorts.AddNewCohort(targetSpecies, age, transfer, new System.Dynamic.ExpandoObject());
                             break;
                         }
                     }
                 }
+                biomassTransfer.Clear();
             }
         }
         private ISpecies GetSpeciesByName(string name) {

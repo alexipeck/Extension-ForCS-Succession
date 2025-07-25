@@ -3,6 +3,7 @@ using Landis.SpatialModeling;
 using Landis.Library.UniversalCohorts;
 using System.Collections.Generic;
 using System.Dynamic;
+using System.Linq;
 
 namespace Landis.Extension.Succession.ForC
 {
@@ -48,44 +49,38 @@ namespace Landis.Extension.Succession.ForC
                 }
                 
                 foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
-                    foreach (ICohort cohort in speciesCohorts) {
-                        if (biomassTransferRules.TryGetValue(speciesCohorts.Species.Name, out string targetSpeciesName)) {
-                            int transfer = (int)(cohort.Data.Biomass * 0.3);
+                    SpeciesCohorts concreteSpeciesCohorts = (SpeciesCohorts)speciesCohorts;
+                    foreach (ICohort cohort in concreteSpeciesCohorts) {
+                        if (biomassTransferRules.TryGetValue(concreteSpeciesCohorts.Species.Name, out string targetSpeciesName)) {
+                            int transfer = (int)(cohort.Data.Biomass * 0.99);
                             cohort.ChangeBiomass(-transfer);
                             ISpecies targetSpecies = speciesNameToISpecies[targetSpeciesName];
                             if (!biomassTransfer.ContainsKey(targetSpecies)) {
                                 biomassTransfer[targetSpecies] = new Dictionary<ushort, int>();
                             }
                             biomassTransfer[targetSpecies][cohort.Data.Age] = transfer;
+                            //PlugIn.ModelCore.UI.WriteLine($"Transferring from {speciesCohorts.Species.Name} to {targetSpeciesName}: {transfer}");
                         }
                     }
                 }
-                
-                foreach (KeyValuePair<ISpecies, Dictionary<ushort, int>> speciesEntry in biomassTransfer) {
-                    ISpecies targetSpecies = speciesEntry.Key;
-                    
-                    foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
-                        if (speciesCohorts.Species == targetSpecies) {
-                            foreach (ICohort cohort in speciesCohorts) {
-                                ushort age = cohort.Data.Age;
-                                if (speciesEntry.Value.TryGetValue(age, out int transfer)) {
-                                    cohort.ChangeBiomass(transfer);
-                                    speciesEntry.Value.Remove(age);
-                                }
+
+                /* foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
+                    if (biomassTransfer.TryGetValue(speciesCohorts.Species, out Dictionary<ushort, int> speciesBiomassTransfer)) {
+                        SpeciesCohorts concreteSpeciesCohorts = (SpeciesCohorts)speciesCohorts;
+                        foreach (ICohort cohort in concreteSpeciesCohorts) {
+                            if (speciesBiomassTransfer.TryGetValue(cohort.Data.Age, out int transfer)) {
+                                cohort.ChangeBiomass(transfer);
+                                speciesBiomassTransfer.Remove(cohort.Data.Age);
                             }
-                            break;
                         }
+                        foreach (KeyValuePair<ushort, int> remainingTransfer in speciesBiomassTransfer) {
+                            ushort age = remainingTransfer.Key;
+                            int transfer = remainingTransfer.Value;
+                            siteCohorts.AddNewCohort(speciesCohorts.Species, age, transfer, new ExpandoObject());
+                        }
+                        biomassTransfer.Remove(speciesCohorts.Species);
                     }
-                    
-                    // Create new cohorts for any remaining transfers
-                    foreach (KeyValuePair<ushort, int> remainingTransfer in speciesEntry.Value) {
-                        ushort age = remainingTransfer.Key;
-                        int transfer = remainingTransfer.Value;
-                        siteCohorts.AddNewCohort(targetSpecies, age, transfer, new ExpandoObject());
-                    }
-                }
-                
-                // Clear transfer dictionary for reuse
+                } */
                 biomassTransfer.Clear();
             }
         }

@@ -8,16 +8,12 @@ namespace Landis.Extension.Succession.ForC
 {
     public static class BBDHandler
     {
+
+
         public static void ProcessBBD()
         {
             IEnumerable<ActiveSite> sites = /* ModelCore.Landscape */PlugIn.ModelCore.Landscape.ActiveSites;
             
-            // Dictionaries to store interfaces for site cohort data to provide O(1) access instead of native O(n)
-            // This state only survives the current timestep and most of these dictionaries are cleared after every site iteration.
-            Dictionary<ISpecies, ISpeciesCohorts> speciesCohortsLookup = new Dictionary<ISpecies, ISpeciesCohorts>();
-            //probably unnecessary, but I will leave it for now
-            Dictionary<ISpecies, Dictionary<ushort, ICohort>> ageLookup = new Dictionary<ISpecies, Dictionary<ushort, ICohort>>();
-            Dictionary<ISpecies, SpeciesCohorts> concreteSpeciesCohortsLookup = new Dictionary<ISpecies, SpeciesCohorts>();
             Dictionary<ISpecies, Dictionary<ushort, int>> biomassTransfer = new Dictionary<ISpecies, Dictionary<ushort, int>>();
             
             // Define biomass transfer rules (source species -> target species)
@@ -29,8 +25,7 @@ namespace Landis.Extension.Succession.ForC
                 { "FAGU.GR2", "FAGU.GR3" },
             };
             
-            // Create species name to ISpecies mapping dictionary
-            var speciesNameToISpecies = new Dictionary<string, ISpecies>();
+            Dictionary<string, ISpecies> speciesNameToISpecies = new Dictionary<string, ISpecies>();
             foreach (var species in PlugIn.ModelCore.Species) {
                 speciesNameToISpecies[species.Name] = species;
             }
@@ -39,20 +34,6 @@ namespace Landis.Extension.Succession.ForC
             
             foreach (ActiveSite site in sites) {
                 SiteCohorts siteCohorts = SiteVars.Cohorts[site];
-                // Stage 1: Build dictionaries for this site
-                foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
-                    speciesCohortsLookup[speciesCohorts.Species] = speciesCohorts;
-                    
-                    // Store concrete type for AddNewCohort access
-                    concreteSpeciesCohortsLookup[speciesCohorts.Species] = (SpeciesCohorts)speciesCohorts;
-                    
-                    // Build age lookup for O(1) age access within each species
-                    var speciesAgeLookup = new Dictionary<ushort, ICohort>();
-                    foreach (ICohort cohort in speciesCohorts) {
-                        speciesAgeLookup[cohort.Data.Age] = cohort;
-                    }
-                    ageLookup[speciesCohorts.Species] = speciesAgeLookup;
-                }
                 
                 // Debug output for specific site
                 if (site.Location.Row == 136 && site.Location.Column == 1) {
@@ -66,15 +47,9 @@ namespace Landis.Extension.Succession.ForC
                     }
                 }
                 
-                // Stage 2: Biomass transfer logic using O(1) dictionary lookups
-                
-                // Look through ALL cohorts and check for specific species
                 foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
-                    string speciesName = speciesCohorts.Species.Name;
                     foreach (ICohort cohort in speciesCohorts) {
-                        if (biomassTransferRules.TryGetValue(speciesName, out string targetSpeciesName)) {
-                            //PlugIn.ModelCore.UI.WriteLine($"1Transferring {speciesName} to {targetSpeciesName}");
-
+                        if (biomassTransferRules.TryGetValue(speciesCohorts.Species.Name, out string targetSpeciesName)) {
                             int transfer = (int)(cohort.Data.Biomass * 0.3);
                             cohort.ChangeBiomass(-transfer);
                             ISpecies targetSpecies = speciesNameToISpecies[targetSpeciesName];
@@ -82,44 +57,36 @@ namespace Landis.Extension.Succession.ForC
                                 biomassTransfer[targetSpecies] = new Dictionary<ushort, int>();
                             }
                             biomassTransfer[targetSpecies][cohort.Data.Age] = transfer;
-                            //PlugIn.ModelCore.UI.WriteLine($"2: {targetSpeciesName} has {biomassTransfer[targetSpecies][cohort.Data.Age]}");
                         }
                     }
                 }
                 
-                // Process transfers to target species using O(1) dictionary lookups
                 foreach (KeyValuePair<ISpecies, Dictionary<ushort, int>> speciesEntry in biomassTransfer) {
                     ISpecies targetSpecies = speciesEntry.Key;
-
-                    ageLookup.TryGetValue(targetSpecies, out var targetAgeLookup);
-
-                    foreach (KeyValuePair<ushort, int> ageEntry in speciesEntry.Value) {
-                        ushort age = ageEntry.Key;
-                        int transfer = ageEntry.Value;
-
-                        //PlugIn.ModelCore.UI.WriteLine($"Transferring {transfer} biomass to {targetSpecies.Name}");
-
-                        if (targetAgeLookup != null && targetAgeLookup.TryGetValue(age, out var targetCohort)) {
-                            targetCohort.ChangeBiomass(transfer);
-                        } else if (concreteSpeciesCohortsLookup.TryGetValue(targetSpecies, out var concreteCohorts)) {
-                            concreteCohorts.AddNewCohort(age, transfer, new ExpandoObject());
-                        } else {
-                            siteCohorts.AddNewCohort(targetSpecies, age, transfer, new ExpandoObject());
+                    
+                    foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
+                        if (speciesCohorts.Species == targetSpecies) {
+                            foreach (ICohort cohort in speciesCohorts) {
+                                ushort age = cohort.Data.Age;
+                                if (speciesEntry.Value.TryGetValue(age, out int transfer)) {
+                                    cohort.ChangeBiomass(transfer);
+                                    speciesEntry.Value.Remove(age);
+                                }
+                            }
+                            break;
                         }
+                    }
+                    
+                    // Create new cohorts for any remaining transfers
+                    foreach (KeyValuePair<ushort, int> remainingTransfer in speciesEntry.Value) {
+                        ushort age = remainingTransfer.Key;
+                        int transfer = remainingTransfer.Value;
+                        siteCohorts.AddNewCohort(targetSpecies, age, transfer, new ExpandoObject());
                     }
                 }
                 
-                // Clear inner dictionaries for reuse
-                // It's probably redundant clearing the inner dictionaries
-                foreach (var innerDict in biomassTransfer.Values) {
-                    innerDict.Clear();
-                }
+                // Clear transfer dictionary for reuse
                 biomassTransfer.Clear();
-                
-                // Clear dictionaries for reuse at end of iteration
-                speciesCohortsLookup.Clear();
-                ageLookup.Clear();
-                concreteSpeciesCohortsLookup.Clear();
             }
         }
     }

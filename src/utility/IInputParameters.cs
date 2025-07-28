@@ -122,5 +122,13 @@ namespace Landis.Extension.Succession.ForC
         //{
         //    get;
         //}
+
+        
+        //---------------------------------------------------------------------
+        /// <summary>
+        /// List of species names in the order specified by the SpeciesOrder file.
+        /// </summary>
+        List<string> SpeciesOrderList { get; }
+        Dictionary<string, string> SpeciesTransferRules { get; }
     }
 }

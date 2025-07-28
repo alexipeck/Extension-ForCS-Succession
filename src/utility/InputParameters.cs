@@ -104,6 +104,8 @@ namespace Landis.Extension.Succession.ForC
         //private int[] m_SnagTimeSinceDeath;
         //private string[] m_SnagDisturb; 
 
+        private List<string> speciesOrderList;
+        private Dictionary<string, string> speciesTransferRules;
 
         //---------------------------------------------------------------------
         /// <summary>
@@ -784,6 +786,35 @@ namespace Landis.Extension.Succession.ForC
             this.m_dEstablishProbability[species][ecoregion] = CheckBiomassParm(dProp, 0.0, 1.0);
         }
         //---------------------------------------------------------------------
+
+        
+        //---------------------------------------------------------------------
+        /// <summary>
+        /// List of species names in the order specified by the SpeciesOrder file.
+        /// </summary>
+        public List<string> SpeciesOrderList
+        {
+            get {
+                return speciesOrderList;
+            }
+            set {
+                speciesOrderList = value;
+            }
+        }
+
+        //---------------------------------------------------------------------
+        /// <summary>
+        /// List of species names in the order specified by the SpeciesOrder file.
+        /// </summary>
+        public Dictionary<string, string> SpeciesTransferRules
+        {
+            get {
+                return speciesTransferRules;
+            }
+            set {
+                speciesTransferRules = value;
+            }
+        }
 
         public InputParameters()
         {

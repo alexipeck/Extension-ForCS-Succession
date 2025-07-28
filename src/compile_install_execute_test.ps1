@@ -15,7 +15,8 @@ if ($LASTEXITCODE -ne 0) {
 
 Copy-Item -Path "$ProjectDir\src\bin\release\netstandard2.0\Landis.Extension.Succession.ForC-v4.dll" -Destination "$LandisExtensionsDir\" -Force
 
-cd "C:\landis\HETRE_ERABLE"
+#cd "C:\landis\HETRE_ERABLE"
+cd "$ProjectDir\testing\v8 Scenario"
 try {
     Write-Output "Executing LANDIS-II..."
     landis-ii-8.cmd .\scenario.txt 2>&1 | Tee-Object -FilePath console-output.txt

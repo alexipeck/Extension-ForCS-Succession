@@ -168,11 +168,11 @@ namespace Landis.Extension.Succession.ForC
                 SiteCohorts siteCohorts = SiteVars.Cohorts[site];
                 
                 // Debug output for specific site
-                if (site.Location.Row == 136 && site.Location.Column == 1) {
+                if ((site.Location.Row == 136 && site.Location.Column == 1) || (site.Location.Row == 2 && site.Location.Column == 2)) {
                     foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
                         string speciesName = speciesCohorts.Species.Name;
                         foreach (ICohort cohort in speciesCohorts) {
-                            if (speciesName == "FAGU.GRA" || speciesName == "FAGU.GR1" || speciesName == "FAGU.GR2" || speciesName == "FAGU.GR3") {
+                            if (parameters.IsSpeciesInDebugSet(speciesName)) {
                                 PlugIn.ModelCore.UI.WriteLine($"Site: ({site.Location.Row},{site.Location.Column}), Species: {speciesName}, Age: {cohort.Data.Age}, Biomass: {cohort.Data.Biomass}");
                             }
                         }
@@ -180,7 +180,7 @@ namespace Landis.Extension.Succession.ForC
                 }
                 
                 foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
-                    if (speciesCohorts.Species.Name == "FAGU.GRA" || speciesCohorts.Species.Name == "FAGU.GR1" || speciesCohorts.Species.Name == "FAGU.GR2" || speciesCohorts.Species.Name == "FAGU.GR3") {
+                    if (parameters.IsSpeciesInDebugSet(speciesCohorts.Species.Name)) {
                         //PlugIn.ModelCore.UI.WriteLine($"Processing species: {speciesCohorts.Species.Name}");
                     }
                     
@@ -189,18 +189,18 @@ namespace Landis.Extension.Succession.ForC
                         /* if (speciesCohorts.Species.Name == "FAGU.GRA" || speciesCohorts.Species.Name == "FAGU.GR1" || speciesCohorts.Species.Name == "FAGU.GR2" || speciesCohorts.Species.Name == "FAGU.GR3") {
                             PlugIn.ModelCore.UI.WriteLine($"\tProcessing cohort: {cohort.Data.Age}, Biomass: {cohort.Data.Biomass}");
                         } */
-                        if (biomassTransferRules.TryGetValue(speciesCohorts.Species.Name, out string targetSpeciesName)) {
+                        if (parameters.SpeciesTransferRules.TryGetValue(speciesCohorts.Species.Name, out string targetSpeciesName)) {
                             int transfer = (int)(cohort.Data.Biomass * 0.99);
                             cohort.ChangeBiomass(-transfer);
-                            ISpecies targetSpecies = speciesNameToISpecies[targetSpeciesName];
+                            /* ISpecies targetSpecies = speciesNameToISpecies[targetSpeciesName];
                             if (!biomassTransfer.ContainsKey(targetSpecies)) {
                                 biomassTransfer[targetSpecies] = new Dictionary<ushort, int>();
                             }
-                            biomassTransfer[targetSpecies][cohort.Data.Age] = transfer;
+                            biomassTransfer[targetSpecies][cohort.Data.Age] = transfer; */
                             //PlugIn.ModelCore.UI.WriteLine($"Transferring from {speciesCohorts.Species.Name} to {targetSpeciesName}: {transfer}");
                         } else {
-                            if (speciesCohorts.Species.Name == "FAGU.GRA" || speciesCohorts.Species.Name == "FAGU.GR1" || speciesCohorts.Species.Name == "FAGU.GR2" || speciesCohorts.Species.Name == "FAGU.GR3") {
-                                PlugIn.ModelCore.UI.WriteLine($"No transfer rule found for species: {speciesCohorts.Species.Name}");
+                            if (parameters.IsSpeciesInDebugSet(speciesCohorts.Species.Name)) {
+                                //PlugIn.ModelCore.UI.WriteLine($"No transfer rule found for species: {speciesCohorts.Species.Name}");
                             }
                         }
                     }

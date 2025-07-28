@@ -3,6 +3,8 @@ LandisData  "ForC Succession"
 >> We don't recommend changing the timestep. We haven't tested it.
 Timestep  1
 
+SpeciesOrder	species-order.txt
+
 SeedingAlgorithm  WardSeedDispersal
 
 ForCSClimateFile	"./ForCSClimateInputv3.0 no CC.txt"

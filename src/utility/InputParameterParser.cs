@@ -17,6 +17,7 @@ namespace Landis.Extension.Succession.ForC
         public static class Names
         {
             public const string Timestep = "Timestep";
+            public const string SpeciesOrder = "SpeciesOrder";
             public const string SeedingAlgorithm = "SeedingAlgorithm";
             public const string CalibrateMode = "CalibrateMode";
             public const string ClimateFile = "ClimateFile";
@@ -118,7 +119,7 @@ namespace Landis.Extension.Succession.ForC
 
             //ReadLandisDataVar();
             
-            InputParameters parameters = new InputParameters();  
+            InputParameters parameters = new InputParameters();
 
             //Get number of active ecoregions
             foreach (IEcoregion ecoregion in PlugIn.ModelCore.Ecoregions)
@@ -129,6 +130,50 @@ namespace Landis.Extension.Succession.ForC
             InputVar<int> timestep = new InputVar<int>(Names.Timestep);
             ReadVar(timestep);
             parameters.Timestep = timestep.Value;
+
+            // - species order -
+            PlugIn.ModelCore.UI.WriteLine("Started reading species order file");
+            InputVar<string> speciesOrderFile = new InputVar<string>(Names.SpeciesOrder);
+            ReadVar(speciesOrderFile);
+            var speciesOrderList = new List<string>();
+            int lineNum = 0;
+            foreach (var line in System.IO.File.ReadLines(speciesOrderFile.Value))
+            {
+                lineNum++;
+                var trimmed = line.Trim();
+                if (string.IsNullOrEmpty(trimmed)) continue;
+                var found = false;
+                foreach (var species in speciesDataset)
+                {
+                    if (species.Name == trimmed)
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found)
+                {
+                    throw new InputValueException(trimmed, $"Species '{trimmed}' on line {lineNum} of SpeciesOrder file does not exist in scenario species list.");
+                }
+                speciesOrderList.Add(trimmed);
+            }
+            if (speciesOrderList.Count < 2)
+            {
+                throw new InputValueException(speciesOrderFile.Value, "SpeciesOrder file must contain at least two valid species name.");
+            }
+            Dictionary<string, string> speciesTransferRules = new Dictionary<string, string>();
+
+            for (int i = 0; i < speciesOrderList.Count - 1; i++) {
+                speciesTransferRules[speciesOrderList[i]] = speciesOrderList[i + 1];
+            }
+            HashSet<string> speciesDebugSet = new HashSet<string>();
+            foreach (var species in speciesOrderList) {
+                speciesDebugSet.Add(species);
+            }
+            parameters.SpeciesDebugSet = speciesDebugSet;
+            parameters.SpeciesOrderList = speciesOrderList;
+            parameters.SpeciesTransferRules = speciesTransferRules;
+            PlugIn.ModelCore.UI.WriteLine("Finished reading species order file");
 
             InputVar<SeedingAlgorithms> seedAlg = new InputVar<SeedingAlgorithms>(Names.SeedingAlgorithm);
             ReadVar(seedAlg);
@@ -762,44 +807,6 @@ namespace Landis.Extension.Succession.ForC
                 GetNextLine();
             }
              */
-
-             // - species order -
-            InputVar<string> speciesOrderFile = new InputVar<string>("SpeciesOrder");
-            ReadVar(speciesOrderFile);
-            string speciesOrderPath = speciesOrderFile.Value;
-            var speciesOrderList = new List<string>();
-            int lineNum = 0;
-            foreach (var line in System.IO.File.ReadLines(speciesOrderPath))
-            {
-                lineNum++;
-                var trimmed = line.Trim();
-                if (string.IsNullOrEmpty(trimmed)) continue;
-                var found = false;
-                foreach (var species in speciesDataset)
-                {
-                    if (species.Name == trimmed)
-                    {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found)
-                {
-                    throw new InputValueException(trimmed, $"Species '{trimmed}' on line {lineNum} of SpeciesOrder file does not exist in scenario species list.");
-                }
-                speciesOrderList.Add(trimmed);
-            }
-            if (speciesOrderList.Count < 2)
-            {
-                throw new InputValueException(speciesOrderPath, "SpeciesOrder file must contain at least two valid species name.");
-            }
-            Dictionary<string, string> speciesTransferRules = new Dictionary<string, string>();
-
-            for (int i = 0; i < speciesOrderList.Count - 1; i++) {
-                speciesTransferRules[speciesOrderList[i]] = speciesOrderList[i + 1];
-            }
-            parameters.SpeciesOrderList = speciesOrderList;
-            parameters.SpeciesTransferRules = speciesTransferRules;
             
             return parameters;
         }

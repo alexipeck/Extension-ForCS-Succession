@@ -199,7 +199,7 @@ namespace Landis.Extension.Succession.ForC
                             if (!biomassTransfer.ContainsKey(targetSpecies)) {
                                 biomassTransfer[targetSpecies] = new Dictionary<ushort, int>();
                             }
-                            biomassTransfer[targetSpecies][1/* concreteCohort.Data.Age */] = transfer;
+                            biomassTransfer[targetSpecies][concreteCohort.Data.Age] = transfer;
                             //PlugIn.ModelCore.UI.WriteLine($"Transferring from {speciesCohorts.Species.Name} to {targetSpeciesName}, age: {cohort.Data.Age}, transfer: {transfer}");
                         } else {
                             if (parameters.SpeciesTransferRules.ContainsKey(speciesCohorts.Species.Name)) {
@@ -212,15 +212,16 @@ namespace Landis.Extension.Succession.ForC
                     SpeciesCohorts concreteSpeciesCohorts = (SpeciesCohorts)speciesCohorts;
                     if (biomassTransfer.TryGetValue(concreteSpeciesCohorts.Species, out Dictionary<ushort, int> speciesBiomassTransfer)) {
                         foreach (var cohort in concreteSpeciesCohorts) {
-                            if (speciesBiomassTransfer.TryGetValue(cohort.Data.Age, out int transfer)) {
-                                cohort.ChangeBiomass(transfer);
-                                speciesBiomassTransfer.Remove(cohort.Data.Age);
+                            Cohort concreteCohort = (Cohort)cohort;
+                            if (speciesBiomassTransfer.TryGetValue(concreteCohort.Data.Age, out int transfer)) {
+                                concreteCohort.ChangeBiomass(transfer);
+                                speciesBiomassTransfer.Remove(concreteCohort.Data.Age);
                                 if ((site.Location.Row == 136 && site.Location.Column == 1) || (site.Location.Row == 2 && site.Location.Column == 2)) {
-                                    PlugIn.ModelCore.UI.WriteLine($"Transferring to site({site.Location.Row},{site.Location.Column}), species: {cohort.Species.Name}, age: {cohort.Data.Age}, transfer: {transfer}");
+                                    PlugIn.ModelCore.UI.WriteLine($"Transferring to site({site.Location.Row},{site.Location.Column}), species: {concreteCohort.Species.Name}, age: {concreteCohort.Data.Age}, transfer: {transfer}");
                                 }
                             }
                         }
-                        foreach (KeyValuePair<ushort, int> remainingTransfer in speciesBiomassTransfer) {
+                        /* foreach (KeyValuePair<ushort, int> remainingTransfer in speciesBiomassTransfer) {
                             ushort age = remainingTransfer.Key;
                             int transfer = remainingTransfer.Value;
                             concreteSpeciesCohorts.AddNewCohort(age, transfer, new ExpandoObject());
@@ -228,7 +229,7 @@ namespace Landis.Extension.Succession.ForC
                             if ((site.Location.Row == 136 && site.Location.Column == 1) || (site.Location.Row == 2 && site.Location.Column == 2)) {
                                 PlugIn.ModelCore.UI.WriteLine($"Adding new cohort: site({site.Location.Row},{site.Location.Column}), species: {speciesCohorts.Species.Name}, age: {age}, transfer: {transfer}");
                             }
-                        }
+                        } */
                     }
                 }
                 foreach (var species in biomassTransfer) {

@@ -254,3 +254,4 @@ src/lib/Landis.Library.Parameters-v2.dll
 src/lib/Landis.Library.Metadata-v2.dll
 /src/obj
 testing/v8 Scenario/console-output.txt
+testing/v8 Scenario/console-output-filtered.txt

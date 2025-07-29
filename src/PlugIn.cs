@@ -193,7 +193,7 @@ namespace Landis.Extension.Succession.ForC
                         //    PlugIn.ModelCore.UI.WriteLine($"\tProcessing cohort: {cohort.Data.Age}, Biomass: {cohort.Data.Biomass}");
                         //}
                         if (parameters.SpeciesTransferRules.TryGetValue(speciesCohorts.Species.Name, out string targetSpeciesName)) {
-                            int transfer = (int)(concreteCohort.Data.Biomass * 0.3);
+                            int transfer = (int)(concreteCohort.Data.Biomass * 0.99);
                             concreteCohort.ChangeBiomass(-transfer);
                             ISpecies targetSpecies = speciesNameToISpecies[targetSpeciesName];
                             if (!biomassTransfer.ContainsKey(targetSpecies)) {
@@ -211,7 +211,8 @@ namespace Landis.Extension.Succession.ForC
                 foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
                     SpeciesCohorts concreteSpeciesCohorts = (SpeciesCohorts)speciesCohorts;
                     if (biomassTransfer.TryGetValue(concreteSpeciesCohorts.Species, out Dictionary<ushort, int> speciesBiomassTransfer)) {
-                        foreach (var cohort in concreteSpeciesCohorts) {
+                        var deleteIndexes = new List<int>();
+                        foreach (var (cohort, index) in concreteSpeciesCohorts.Select((cohort, index) => (cohort, index))) {
                             Cohort concreteCohort = (Cohort)cohort;
                             if (speciesBiomassTransfer.TryGetValue(concreteCohort.Data.Age, out int transfer)) {
                                 concreteCohort.ChangeBiomass(transfer);
@@ -219,7 +220,12 @@ namespace Landis.Extension.Succession.ForC
                                 if ((site.Location.Row == 136 && site.Location.Column == 1) || (site.Location.Row == 2 && site.Location.Column == 2)) {
                                     PlugIn.ModelCore.UI.WriteLine($"Transferring to site({site.Location.Row},{site.Location.Column}), species: {concreteCohort.Species.Name}, age: {concreteCohort.Data.Age}, transfer: {transfer}");
                                 }
+                                deleteIndexes.Add(index);
                             }
+                        }
+                        deleteIndexes.Reverse();
+                        foreach (var index in deleteIndexes) {
+                            concreteSpeciesCohorts.RemoveCohort(index, concreteSpeciesCohorts[index], site, null);
                         }
                         /* foreach (KeyValuePair<ushort, int> remainingTransfer in speciesBiomassTransfer) {
                             ushort age = remainingTransfer.Key;

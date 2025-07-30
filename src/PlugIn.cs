@@ -215,7 +215,8 @@ namespace Landis.Extension.Succession.ForC
                     }
                     deleteIndexes.Reverse();
                     foreach (var index in deleteIndexes) {
-                        concreteSpeciesCohorts.RemoveCohort(index, concreteSpeciesCohorts[index], site, null);
+                        //concreteSpeciesCohorts.RemoveCohort(index, concreteSpeciesCohorts[index], site, null);
+                        concreteSpeciesCohorts.RemoveCohortWithoutMortality(index, concreteSpeciesCohorts[index], site, null);
                     }
                 }
                 foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {

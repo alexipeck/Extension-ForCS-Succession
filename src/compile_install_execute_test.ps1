@@ -7,6 +7,7 @@ $ProjectDir = "C:\Users\Me\projects\Extension-ForCS-Succession"
 $LandisExtensionsDir = "C:\Program Files\LANDIS-II-v8\extensions"
 
 $LandisExecutionDir = "C:\landis\HETRE_ERABLE"
+$LandisExecutionDir = "C:\landis\HETRE_ERABLE (5)"
 #$LandisExecutionDir = "$ProjectDir\testing\v8 Scenario"
 
 Write-Host "Configuration:"

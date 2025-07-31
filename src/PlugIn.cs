@@ -173,9 +173,9 @@ namespace Landis.Extension.Succession.ForC
                     foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
                         string speciesName = speciesCohorts.Species.Name;
                         foreach (ICohort cohort in speciesCohorts) {
-                            if (parameters.IsSpeciesInDebugSet(speciesName)) {
+                            //if (parameters.IsSpeciesInDebugSet(speciesName)) {
                                 PlugIn.ModelCore.UI.WriteLine($"Site: ({site.Location.Row},{site.Location.Column}), Species: {speciesName}, Age: {cohort.Data.Age}, Biomass: {cohort.Data.Biomass}");
-                            }
+                            //}
                         }
                     }
                 }
@@ -183,9 +183,9 @@ namespace Landis.Extension.Succession.ForC
                 foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
                     var deleteIndexes = new List<int>();
                     SpeciesCohorts concreteSpeciesCohorts = (SpeciesCohorts)speciesCohorts;
-                    if (parameters.IsSpeciesInDebugSet(speciesCohorts.Species.Name)) {
-                        //PlugIn.ModelCore.UI.WriteLine($"Processing species: {speciesCohorts.Species.Name}");
-                    }
+                    /* if (parameters.IsSpeciesInDebugSet(speciesCohorts.Species.Name)) {
+                        PlugIn.ModelCore.UI.WriteLine($"Processing species: {speciesCohorts.Species.Name}");
+                    } */
                     
                     //SpeciesCohorts concreteSpeciesCohorts = (SpeciesCohorts)speciesCohorts;
                     foreach (var (cohort, index) in concreteSpeciesCohorts.Select((cohort, index) => (cohort, index))) {
@@ -193,16 +193,21 @@ namespace Landis.Extension.Succession.ForC
                         var transitionToSpecies = parameters.GetTransitionMatrixOutcome(speciesCohorts.Species.Name);
                         if (transitionToSpecies != null) {
                             int transfer = (int)(concreteCohort.Data.Biomass * 0.3);
-                            ISpecies targetSpecies = speciesNameToISpecies[transitionToSpecies];
-                            if (!biomassTransfer.ContainsKey(targetSpecies)) {
-                                biomassTransfer[targetSpecies] = new Dictionary<ushort, int>();
+                            if (transitionToSpecies.ToUpper() == "DEAD") {
+                                PlugIn.ModelCore.UI.WriteLine("Need to deal with killing either part of the cohort or the whole cohort");
+                            } else {
+                                ISpecies targetSpecies = speciesNameToISpecies[transitionToSpecies];
+                                if (!biomassTransfer.ContainsKey(targetSpecies)) {
+                                    biomassTransfer[targetSpecies] = new Dictionary<ushort, int>();
+                                }
+                                biomassTransfer[targetSpecies][concreteCohort.Data.Age] = transfer;
+                                if (!biomassTransfer.ContainsKey(speciesCohorts.Species)) {
+                                    biomassTransfer[speciesCohorts.Species] = new Dictionary<ushort, int>();
+                                }
+                                biomassTransfer[speciesCohorts.Species][concreteCohort.Data.Age] = concreteCohort.Data.Biomass - transfer;
+                                deleteIndexes.Add(index);
                             }
-                            biomassTransfer[targetSpecies][concreteCohort.Data.Age] = transfer;
-                            if (!biomassTransfer.ContainsKey(speciesCohorts.Species)) {
-                                biomassTransfer[speciesCohorts.Species] = new Dictionary<ushort, int>();
-                            }
-                            biomassTransfer[speciesCohorts.Species][concreteCohort.Data.Age] = concreteCohort.Data.Biomass - transfer;
-                            deleteIndexes.Add(index);
+                            
                         }
                     }
                     deleteIndexes.Reverse();

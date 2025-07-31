@@ -5,6 +5,7 @@ using Landis.Core;
 using Landis.SpatialModeling;
 using System.Collections.Generic;
 using Landis.Utilities;
+using System;
 
 namespace Landis.Extension.Succession.ForC
 {
@@ -17,7 +18,7 @@ namespace Landis.Extension.Succession.ForC
         public static class Names
         {
             public const string Timestep = "Timestep";
-            public const string SpeciesOrder = "SpeciesOrder";
+            public const string SpeciesMatrix = "SpeciesMatrix";
             public const string SeedingAlgorithm = "SeedingAlgorithm";
             public const string CalibrateMode = "CalibrateMode";
             public const string ClimateFile = "ClimateFile";
@@ -131,48 +132,141 @@ namespace Landis.Extension.Succession.ForC
             ReadVar(timestep);
             parameters.Timestep = timestep.Value;
 
-            // - species order -
-            PlugIn.ModelCore.UI.WriteLine("Started reading species order file");
-            InputVar<string> speciesOrderFile = new InputVar<string>(Names.SpeciesOrder);
-            ReadVar(speciesOrderFile);
+            ////////////////////
+            // species matrix
+
+            // read file
+            PlugIn.ModelCore.UI.WriteLine("Started reading species matrix file");
+            InputVar<string> speciesMatrixFile = new InputVar<string>(Names.SpeciesMatrix);
+            ReadVar(speciesMatrixFile);
+            
+            // dynamically sized matrix ingestion
             var speciesOrderList = new List<string>();
+            var speciesTransitionMatrix = new Dictionary<string, Dictionary<string, double>>();
             int lineNum = 0;
-            foreach (var line in System.IO.File.ReadLines(speciesOrderFile.Value))
-            {
+            List<string> columnHeaders = null;
+            
+            foreach (var line in System.IO.File.ReadLines(speciesMatrixFile.Value)) {
                 lineNum++;
                 var trimmed = line.Trim();
                 if (string.IsNullOrEmpty(trimmed)) continue;
+                PlugIn.ModelCore.UI.WriteLine($"Processing line {lineNum}: {trimmed}");
+                
+                var columns = trimmed.Split(',');
+                PlugIn.ModelCore.UI.WriteLine($"Columns: {string.Join(", ", columns)}");
+                
+                if (lineNum == 1) {
+                    columnHeaders = new List<string>(columns);
+                    if (columnHeaders.Count < 3)
+                    {
+                        throw new InputValueException(speciesMatrixFile.Value, "Species matrix file must have at least 3 columns (source species, target species, and DEAD).");
+                    }
+                    if (columnHeaders[columnHeaders.Count - 1].ToUpper() != "DEAD")
+                    {
+                        throw new InputValueException(speciesMatrixFile.Value, "Last column must be 'DEAD' (case-insensitive).");
+                    }
+                    continue;
+                }
+                
+                var sourceSpecies = columns[0];
                 var found = false;
-                foreach (var species in speciesDataset)
-                {
-                    if (species.Name == trimmed)
+                foreach (var species in speciesDataset) {
+                    if (species.Name == sourceSpecies)
                     {
                         found = true;
                         break;
                     }
                 }
-                if (!found)
-                {
-                    throw new InputValueException(trimmed, $"Species '{trimmed}' on line {lineNum} of SpeciesOrder file does not exist in scenario species list.");
+                if (!found) {
+                    throw new InputValueException(sourceSpecies, $"Species '{sourceSpecies}' on line {lineNum} of SpeciesOrder file does not exist in scenario species list.");
                 }
-                speciesOrderList.Add(trimmed);
+                
+                speciesOrderList.Add(sourceSpecies);
+                speciesTransitionMatrix[sourceSpecies] = new Dictionary<string, double>();
+                
+                double totalProbability = 0.0;
+                for (int i = 1; i < columns.Length; i++) {
+                    if (!double.TryParse(columns[i], out double probability)) {
+                        throw new InputValueException(columns[i], $"Invalid probability value '{columns[i]}' on line {lineNum}, column {i + 1}.");
+                    }
+                    if (probability < 0 || probability > 100) {
+                        throw new InputValueException(columns[i], $"Probability value '{columns[i]}' on line {lineNum}, column {i + 1} must be between 0 and 100.");
+                    }
+                    
+                    var targetSpecies = columnHeaders[i];
+                    speciesTransitionMatrix[sourceSpecies][targetSpecies] = probability;
+                    totalProbability += probability;
+                }
+                
+                if (totalProbability != 100.0) {
+                    throw new InputValueException(sourceSpecies, $"Probabilities for species '{sourceSpecies}' on line {lineNum} must sum to 100% (current sum: {totalProbability}%).");
+                }
             }
-            if (speciesOrderList.Count < 2)
-            {
-                throw new InputValueException(speciesOrderFile.Value, "SpeciesOrder file must contain at least two valid species name.");
+            
+            if (speciesOrderList.Count < 2) {
+                throw new InputValueException(speciesMatrixFile.Value, "SpeciesOrder file must contain at least two valid species name.");
             }
+            
             Dictionary<string, string> speciesTransferRules = new Dictionary<string, string>();
-
             for (int i = 0; i < speciesOrderList.Count - 1; i++) {
                 speciesTransferRules[speciesOrderList[i]] = speciesOrderList[i + 1];
             }
+            
             HashSet<string> speciesDebugSet = new HashSet<string>();
             foreach (var species in speciesOrderList) {
                 speciesDebugSet.Add(species);
             }
+            
             parameters.SpeciesDebugSet = speciesDebugSet;
             parameters.SpeciesOrderList = speciesOrderList;
             parameters.SpeciesTransferRules = speciesTransferRules;
+            parameters.SpeciesTransitionMatrix = speciesTransitionMatrix;
+
+            foreach (var species in speciesOrderList) {
+                PlugIn.ModelCore.UI.WriteLine($"Species: {species}");
+            }
+            foreach (var species in speciesTransitionMatrix) {
+                PlugIn.ModelCore.UI.WriteLine($"Species: {species.Key}");
+                foreach (var transition in species.Value) {
+                    PlugIn.ModelCore.UI.WriteLine($"  Transition: {transition.Key}, Probability: {transition.Value}%");
+                }
+            }
+            foreach (var species in speciesTransferRules) {
+                PlugIn.ModelCore.UI.WriteLine($"Species: {species.Key}");
+                PlugIn.ModelCore.UI.WriteLine($"  Transition: {species.Value}");
+            }
+            
+            PlugIn.ModelCore.UI.WriteLine("Species Transition Matrix:");
+            foreach (var outerEntry in speciesTransitionMatrix)
+            {
+                PlugIn.ModelCore.UI.WriteLine($"  Source Species: {outerEntry.Key}");
+                foreach (var innerEntry in outerEntry.Value)
+                {
+                    if (outerEntry.Key != innerEntry.Key) {
+                        PlugIn.ModelCore.UI.WriteLine($"    Target: {innerEntry.Key}, Probability: {innerEntry.Value}%");
+                    }
+                }
+            }
+
+            PlugIn.ModelCore.UI.WriteLine("Testing");
+            List<string> test_species_list = new List<string> { "FAGU.GRA", "FAGU.GR1", "FAGU.GR2", "FAGU.GR3" };
+            foreach (var test_species in test_species_list) {
+                if (speciesTransitionMatrix.TryGetValue(test_species, out Dictionary<string, double> test_species_transitions)) {
+                    Random rand = new Random();
+                    double probability = rand.NextDouble() * 100.0;
+                    double cumulativeProbability = 0.0;
+                    PlugIn.ModelCore.UI.WriteLine($"Random number: {probability}");
+                    foreach (var transition in test_species_transitions) {
+                        cumulativeProbability += transition.Value;
+                        if (probability <= cumulativeProbability) {
+                            PlugIn.ModelCore.UI.WriteLine($"Selected transition: {transition.Key}");
+                            break;
+                        }
+                    }
+                }
+            }
+            PlugIn.ModelCore.UI.WriteLine("Testing");
+            
             PlugIn.ModelCore.UI.WriteLine("Finished reading species order file");
 
             InputVar<SeedingAlgorithms> seedAlg = new InputVar<SeedingAlgorithms>(Names.SeedingAlgorithm);

@@ -3,7 +3,7 @@ LandisData  "ForC Succession"
 >> We don't recommend changing the timestep. We haven't tested it.
 Timestep  1
 
-SpeciesOrder	species-order.txt
+SpeciesMatrix	species-matrix.tsv
 
 SeedingAlgorithm  WardSeedDispersal
 

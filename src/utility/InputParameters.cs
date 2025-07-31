@@ -107,6 +107,7 @@ namespace Landis.Extension.Succession.ForC
         private List<string> speciesOrderList;
         private HashSet<string> speciesDebugSet;
         private Dictionary<string, string> speciesTransferRules;
+        private Dictionary<string, Dictionary<string, double>> speciesTransitionMatrix;
 
         //---------------------------------------------------------------------
         /// <summary>
@@ -824,6 +825,16 @@ namespace Landis.Extension.Succession.ForC
             }
             set {
                 speciesTransferRules = value;
+            }
+        }
+
+        public Dictionary<string, Dictionary<string, double>> SpeciesTransitionMatrix
+        {
+            get {
+                return speciesTransitionMatrix;
+            }
+            set {
+                speciesTransitionMatrix = value;
             }
         }
 

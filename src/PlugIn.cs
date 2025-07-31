@@ -190,12 +190,8 @@ namespace Landis.Extension.Succession.ForC
                     //SpeciesCohorts concreteSpeciesCohorts = (SpeciesCohorts)speciesCohorts;
                     foreach (var (cohort, index) in concreteSpeciesCohorts.Select((cohort, index) => (cohort, index))) {
                         Cohort concreteCohort = (Cohort)cohort;
-                        //if (speciesCohorts.Species.Name == "FAGU.GRA" || speciesCohorts.Species.Name == "FAGU.GR1" || speciesCohorts.Species.Name == "FAGU.GR2" || speciesCohorts.Species.Name == "FAGU.GR3") {
-                        //    PlugIn.ModelCore.UI.WriteLine($"\tProcessing cohort: {cohort.Data.Age}, Biomass: {cohort.Data.Biomass}");
-                        //}
                         if (parameters.SpeciesTransferRules.TryGetValue(speciesCohorts.Species.Name, out string targetSpeciesName)) {
                             int transfer = (int)(concreteCohort.Data.Biomass * 0.3);
-                            //concreteCohort.ChangeBiomass(-transfer);
                             ISpecies targetSpecies = speciesNameToISpecies[targetSpeciesName];
                             if (!biomassTransfer.ContainsKey(targetSpecies)) {
                                 biomassTransfer[targetSpecies] = new Dictionary<ushort, int>();
@@ -206,7 +202,6 @@ namespace Landis.Extension.Succession.ForC
                             }
                             biomassTransfer[speciesCohorts.Species][concreteCohort.Data.Age] = concreteCohort.Data.Biomass - transfer;
                             deleteIndexes.Add(index);
-                            //PlugIn.ModelCore.UI.WriteLine($"Transferring from {speciesCohorts.Species.Name} to {targetSpeciesName}, age: {cohort.Data.Age}, transfer: {transfer}");
                         } else {
                             if (parameters.SpeciesTransferRules.ContainsKey(speciesCohorts.Species.Name)) {
                                 PlugIn.ModelCore.UI.WriteLine($"No transfer rule found for species: {speciesCohorts.Species.Name}");
@@ -215,7 +210,6 @@ namespace Landis.Extension.Succession.ForC
                     }
                     deleteIndexes.Reverse();
                     foreach (var index in deleteIndexes) {
-                        //concreteSpeciesCohorts.RemoveCohort(index, concreteSpeciesCohorts[index], site, null);
                         concreteSpeciesCohorts.RemoveCohortWithoutMortality(index, concreteSpeciesCohorts[index], site, null);
                     }
                 }
@@ -225,24 +219,12 @@ namespace Landis.Extension.Succession.ForC
                         foreach (var cohort in concreteSpeciesCohorts) {
                             Cohort concreteCohort = (Cohort)cohort;
                             if (speciesBiomassTransfer.TryGetValue(concreteCohort.Data.Age, out int transfer)) {
-                                /* siteCohorts.AddNewCohort(concreteSpeciesCohorts.Species, concreteCohort.Data.Age, concreteCohort.Data.Biomass - transfer, new ExpandoObject()); */
-                                //concreteCohort.ChangeBiomass(transfer);
                                 speciesBiomassTransfer.Remove(concreteCohort.Data.Age);
                                 if ((site.Location.Row == 136 && site.Location.Column == 1) || (site.Location.Row == 2 && site.Location.Column == 2)) {
                                     PlugIn.ModelCore.UI.WriteLine($"Transferring to site({site.Location.Row},{site.Location.Column}), species: {concreteCohort.Species.Name}, age: {concreteCohort.Data.Age}, transfer: {transfer}");
                                 }
                             }
                         }
-                        
-                        /* foreach (KeyValuePair<ushort, int> remainingTransfer in speciesBiomassTransfer) {
-                            ushort age = remainingTransfer.Key;
-                            int transfer = remainingTransfer.Value;
-                            concreteSpeciesCohorts.AddNewCohort(age, transfer, new ExpandoObject());
-                            //siteCohorts.AddNewCohort(concreteSpeciesCohorts.Species, age, transfer, new ExpandoObject());
-                            if ((site.Location.Row == 136 && site.Location.Column == 1) || (site.Location.Row == 2 && site.Location.Column == 2)) {
-                                PlugIn.ModelCore.UI.WriteLine($"Adding new cohort: site({site.Location.Row},{site.Location.Column}), species: {speciesCohorts.Species.Name}, age: {age}, transfer: {transfer}");
-                            }
-                        } */
                     }
                 }
                 foreach (var species in biomassTransfer) {

@@ -131,6 +131,7 @@ namespace Landis.Extension.Succession.ForC
         List<string> SpeciesOrderList { get; set; }
         Dictionary<string, string> SpeciesTransferRules { get; set; }
         HashSet<string> SpeciesDebugSet { get; set; }
+        Dictionary<string, Dictionary<string, double>> SpeciesTransitionMatrix { get; set; }
         bool IsSpeciesInDebugSet(string speciesName);
     }
 }

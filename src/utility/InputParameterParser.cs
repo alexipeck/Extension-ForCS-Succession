@@ -203,23 +203,14 @@ namespace Landis.Extension.Succession.ForC
                 }
             }
             
-            if (speciesOrderList.Count < 2) {
-                throw new InputValueException(speciesMatrixFile.Value, "SpeciesOrder file must contain at least two valid species name.");
-            }
             
-            Dictionary<string, string> speciesTransferRules = new Dictionary<string, string>();
-            for (int i = 0; i < speciesOrderList.Count - 1; i++) {
-                speciesTransferRules[speciesOrderList[i]] = speciesOrderList[i + 1];
-            }
             
             HashSet<string> speciesDebugSet = new HashSet<string>();
-            foreach (var species in speciesOrderList) {
-                speciesDebugSet.Add(species);
+            foreach (var species in speciesTransitionMatrix) {
+                speciesDebugSet.Add(species.Key);
             }
             
             parameters.SpeciesDebugSet = speciesDebugSet;
-            parameters.SpeciesOrderList = speciesOrderList;
-            parameters.SpeciesTransferRules = speciesTransferRules;
             parameters.SpeciesTransitionMatrix = speciesTransitionMatrix;
 
             foreach (var species in speciesOrderList) {
@@ -230,10 +221,6 @@ namespace Landis.Extension.Succession.ForC
                 foreach (var transition in species.Value) {
                     PlugIn.ModelCore.UI.WriteLine($"  Transition: {transition.Key}, Probability: {transition.Value}%");
                 }
-            }
-            foreach (var species in speciesTransferRules) {
-                PlugIn.ModelCore.UI.WriteLine($"Species: {species.Key}");
-                PlugIn.ModelCore.UI.WriteLine($"  Transition: {species.Value}");
             }
             
             PlugIn.ModelCore.UI.WriteLine("Species Transition Matrix:");
@@ -247,25 +234,6 @@ namespace Landis.Extension.Succession.ForC
                     }
                 }
             }
-
-            PlugIn.ModelCore.UI.WriteLine("Testing");
-            List<string> test_species_list = new List<string> { "FAGU.GRA", "FAGU.GR1", "FAGU.GR2", "FAGU.GR3" };
-            foreach (var test_species in test_species_list) {
-                if (speciesTransitionMatrix.TryGetValue(test_species, out Dictionary<string, double> test_species_transitions)) {
-                    Random rand = new Random();
-                    double probability = rand.NextDouble() * 100.0;
-                    double cumulativeProbability = 0.0;
-                    PlugIn.ModelCore.UI.WriteLine($"Random number: {probability}");
-                    foreach (var transition in test_species_transitions) {
-                        cumulativeProbability += transition.Value;
-                        if (probability <= cumulativeProbability) {
-                            PlugIn.ModelCore.UI.WriteLine($"Selected transition: {transition.Key}");
-                            break;
-                        }
-                    }
-                }
-            }
-            PlugIn.ModelCore.UI.WriteLine("Testing");
             
             PlugIn.ModelCore.UI.WriteLine("Finished reading species order file");
 

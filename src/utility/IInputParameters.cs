@@ -123,15 +123,9 @@ namespace Landis.Extension.Succession.ForC
         //    get;
         //}
 
-        
-        //---------------------------------------------------------------------
-        /// <summary>
-        /// List of species names in the order specified by the SpeciesOrder file.
-        /// </summary>
-        List<string> SpeciesOrderList { get; set; }
-        Dictionary<string, string> SpeciesTransferRules { get; set; }
         HashSet<string> SpeciesDebugSet { get; set; }
         Dictionary<string, Dictionary<string, double>> SpeciesTransitionMatrix { get; set; }
         bool IsSpeciesInDebugSet(string speciesName);
+        string GetTransitionMatrixOutcome(string speciesName);
     }
 }

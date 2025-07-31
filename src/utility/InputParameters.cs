@@ -106,7 +106,6 @@ namespace Landis.Extension.Succession.ForC
 
         private List<string> speciesOrderList;
         private HashSet<string> speciesDebugSet;
-        private Dictionary<string, string> speciesTransferRules;
         private Dictionary<string, Dictionary<string, double>> speciesTransitionMatrix;
 
         //---------------------------------------------------------------------
@@ -789,21 +788,6 @@ namespace Landis.Extension.Succession.ForC
         }
         //---------------------------------------------------------------------
 
-        
-        //---------------------------------------------------------------------
-        /// <summary>
-        /// List of species names in the order specified by the SpeciesOrder file.
-        /// </summary>
-        public List<string> SpeciesOrderList
-        {
-            get {
-                return speciesOrderList;
-            }
-            set {
-                speciesOrderList = value;
-            }
-        }
-
         public HashSet<string> SpeciesDebugSet
         {
             get {
@@ -811,20 +795,6 @@ namespace Landis.Extension.Succession.ForC
             }
             set {
                 speciesDebugSet = value;
-            }
-        }
-
-        //---------------------------------------------------------------------
-        /// <summary>
-        /// List of species names in the order specified by the SpeciesOrder file.
-        /// </summary>
-        public Dictionary<string, string> SpeciesTransferRules
-        {
-            get {
-                return speciesTransferRules;
-            }
-            set {
-                speciesTransferRules = value;
             }
         }
 
@@ -1063,6 +1033,21 @@ namespace Landis.Extension.Succession.ForC
             if (speciesDebugSet == null)
                 return false;
             return speciesDebugSet.Contains(speciesName);
+        }
+
+        public string GetTransitionMatrixOutcome(string speciesName) {
+            if (speciesTransitionMatrix.TryGetValue(speciesName, out Dictionary<string, double> species_transitions)) {
+                Random rand = new Random();
+                double random = rand.NextDouble() * 100.0;
+                double cumulativeCheck = 0.0;
+                foreach (var transition in species_transitions) {
+                    cumulativeCheck += transition.Value;
+                    if (random <= cumulativeCheck) {
+                        return transition.Key;
+                    }
+                }
+            }
+            return null;
         }
     }
 }

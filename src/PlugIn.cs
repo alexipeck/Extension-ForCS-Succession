@@ -190,9 +190,10 @@ namespace Landis.Extension.Succession.ForC
                     //SpeciesCohorts concreteSpeciesCohorts = (SpeciesCohorts)speciesCohorts;
                     foreach (var (cohort, index) in concreteSpeciesCohorts.Select((cohort, index) => (cohort, index))) {
                         Cohort concreteCohort = (Cohort)cohort;
-                        if (parameters.SpeciesTransferRules.TryGetValue(speciesCohorts.Species.Name, out string targetSpeciesName)) {
+                        var transitionToSpecies = parameters.GetTransitionMatrixOutcome(speciesCohorts.Species.Name);
+                        if (transitionToSpecies != null) {
                             int transfer = (int)(concreteCohort.Data.Biomass * 0.3);
-                            ISpecies targetSpecies = speciesNameToISpecies[targetSpeciesName];
+                            ISpecies targetSpecies = speciesNameToISpecies[transitionToSpecies];
                             if (!biomassTransfer.ContainsKey(targetSpecies)) {
                                 biomassTransfer[targetSpecies] = new Dictionary<ushort, int>();
                             }
@@ -202,10 +203,6 @@ namespace Landis.Extension.Succession.ForC
                             }
                             biomassTransfer[speciesCohorts.Species][concreteCohort.Data.Age] = concreteCohort.Data.Biomass - transfer;
                             deleteIndexes.Add(index);
-                        } else {
-                            if (parameters.SpeciesTransferRules.ContainsKey(speciesCohorts.Species.Name)) {
-                                PlugIn.ModelCore.UI.WriteLine($"No transfer rule found for species: {speciesCohorts.Species.Name}");
-                            }
                         }
                     }
                     deleteIndexes.Reverse();

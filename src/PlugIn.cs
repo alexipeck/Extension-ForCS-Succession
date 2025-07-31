@@ -173,15 +173,15 @@ namespace Landis.Extension.Succession.ForC
                     foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
                         string speciesName = speciesCohorts.Species.Name;
                         foreach (ICohort cohort in speciesCohorts) {
-                            //if (parameters.IsSpeciesInDebugSet(speciesName)) {
+                            if (parameters.IsSpeciesInDebugSet(speciesName)) {
                                 PlugIn.ModelCore.UI.WriteLine($"Site: ({site.Location.Row},{site.Location.Column}), Species: {speciesName}, Age: {cohort.Data.Age}, Biomass: {cohort.Data.Biomass}");
-                            //}
+                            }
                         }
                     }
                 }
                 
                 foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
-                    var deleteIndexes = new List<int>();
+                    var indexesToDelete = new List<(int, bool)>();
                     SpeciesCohorts concreteSpeciesCohorts = (SpeciesCohorts)speciesCohorts;
                     /* if (parameters.IsSpeciesInDebugSet(speciesCohorts.Species.Name)) {
                         PlugIn.ModelCore.UI.WriteLine($"Processing species: {speciesCohorts.Species.Name}");
@@ -192,9 +192,10 @@ namespace Landis.Extension.Succession.ForC
                         Cohort concreteCohort = (Cohort)cohort;
                         var transitionToSpecies = parameters.GetTransitionMatrixOutcome(speciesCohorts.Species.Name);
                         if (transitionToSpecies != null) {
+                            //PlugIn.ModelCore.UI.WriteLine($"Transition to species: {transitionToSpecies}");
                             int transfer = (int)(concreteCohort.Data.Biomass * 0.3);
                             if (transitionToSpecies.ToUpper() == "DEAD") {
-                                PlugIn.ModelCore.UI.WriteLine("Need to deal with killing either part of the cohort or the whole cohort");
+                                indexesToDelete.Add((index, true));
                             } else {
                                 ISpecies targetSpecies = speciesNameToISpecies[transitionToSpecies];
                                 if (!biomassTransfer.ContainsKey(targetSpecies)) {
@@ -205,14 +206,19 @@ namespace Landis.Extension.Succession.ForC
                                     biomassTransfer[speciesCohorts.Species] = new Dictionary<ushort, int>();
                                 }
                                 biomassTransfer[speciesCohorts.Species][concreteCohort.Data.Age] = concreteCohort.Data.Biomass - transfer;
-                                deleteIndexes.Add(index);
+                                indexesToDelete.Add((index, false));
                             }
                             
                         }
                     }
-                    deleteIndexes.Reverse();
-                    foreach (var index in deleteIndexes) {
-                        concreteSpeciesCohorts.RemoveCohortWithoutMortality(index, concreteSpeciesCohorts[index], site, null);
+                    indexesToDelete.Reverse();
+                    foreach (var (index, withMortality) in indexesToDelete) {
+                        if (withMortality) {
+                            //concreteSpeciesCohorts.RemoveCohort(index, concreteSpeciesCohorts[index], site, null);
+                            //PlugIn.ModelCore.UI.WriteLine("Need to deal with killing either part of the cohort or the whole cohort");
+                        } else {
+                            concreteSpeciesCohorts.RemoveCohortWithoutMortality(index, concreteSpeciesCohorts[index], site, null);
+                        }
                     }
                 }
                 foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {

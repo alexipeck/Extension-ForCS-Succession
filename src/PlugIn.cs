@@ -193,10 +193,10 @@ namespace Landis.Extension.Succession.ForC
                         var transitionToSpecies = parameters.GetTransitionMatrixOutcome(speciesCohorts.Species.Name);
                         if (transitionToSpecies != null) {
                             //PlugIn.ModelCore.UI.WriteLine($"Transition to species: {transitionToSpecies}");
-                            int transfer = (int)(concreteCohort.Data.Biomass * 0.3);
                             if (transitionToSpecies.ToUpper() == "DEAD") {
                                 indexesToDelete.Add((index, true));
                             } else {
+                                int transfer = (int)(concreteCohort.Data.Biomass * 0.3);
                                 ISpecies targetSpecies = speciesNameToISpecies[transitionToSpecies];
                                 if (!biomassTransfer.ContainsKey(targetSpecies)) {
                                     biomassTransfer[targetSpecies] = new Dictionary<ushort, int>();
@@ -214,8 +214,11 @@ namespace Landis.Extension.Succession.ForC
                     indexesToDelete.Reverse();
                     foreach (var (index, withMortality) in indexesToDelete) {
                         if (withMortality) {
-                            //concreteSpeciesCohorts.RemoveCohort(index, concreteSpeciesCohorts[index], site, null);
-                            //PlugIn.ModelCore.UI.WriteLine("Need to deal with killing either part of the cohort or the whole cohort");
+                            concreteSpeciesCohorts.RemoveCohort(index, concreteSpeciesCohorts[index], site, null);
+                            if (concreteSpeciesCohorts.Count == 0) {
+                                PlugIn.ModelCore.UI.WriteLine($"It will crash next growth phase because this species cohort is now empty.");
+                            }
+                            PlugIn.ModelCore.UI.WriteLine("Removed cohort with mortality without crashing");
                         } else {
                             concreteSpeciesCohorts.RemoveCohortWithoutMortality(index, concreteSpeciesCohorts[index], site, null);
                         }

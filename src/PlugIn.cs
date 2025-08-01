@@ -167,18 +167,18 @@ namespace Landis.Extension.Succession.ForC
                 SiteCohorts siteCohorts = SiteVars.Cohorts[site];
                 
                 // Debug output for specific site
-                if ((site.Location.Row == 136 && site.Location.Column == 1) || (site.Location.Row == 2 && site.Location.Column == 2)) {
-                    foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
-                        string speciesName = speciesCohorts.Species.Name;
-                        foreach (ICohort cohort in speciesCohorts) {
-                            if (parameters.IsSpeciesInDebugSet(speciesName)) {
-                                PlugIn.ModelCore.UI.WriteLine($"Site: ({site.Location.Row},{site.Location.Column}), Species: {speciesName}, Age: {cohort.Data.Age}, Biomass: {cohort.Data.Biomass}");
-                            }
+                //if ((site.Location.Row == 136 && site.Location.Column == 1) || (site.Location.Row == 2 && site.Location.Column == 2)) {
+                foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
+                    string speciesName = speciesCohorts.Species.Name;
+                    foreach (ICohort cohort in speciesCohorts) {
+                        if (parameters.IsSpeciesInDebugSet(speciesName)) {
+                            PlugIn.ModelCore.UI.WriteLine($"Site: ({site.Location.Row},{site.Location.Column}), Species: {speciesName}, Age: {cohort.Data.Age}, Biomass: {cohort.Data.Biomass}");
                         }
                     }
                 }
+                //}
                 
-                var emptySpeciesCohortsToRemove = new List<ISpeciesCohorts>();
+                bool mayHaveToRemoveEmptySpeciesCohorts = false;
                 
                 foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
                     var indexesToDelete = new List<(int, bool)>();
@@ -217,7 +217,7 @@ namespace Landis.Extension.Succession.ForC
                             concreteSpeciesCohorts.RemoveCohort(index, concreteSpeciesCohorts[index], site, null);
                             if (concreteSpeciesCohorts.Count == 0) {
                                 //PlugIn.ModelCore.UI.WriteLine($"Species cohort is now empty for {concreteSpeciesCohorts.Species.Name} at site ({site.Location.Row},{site.Location.Column})");
-                                emptySpeciesCohortsToRemove.Add(speciesCohorts);
+                                mayHaveToRemoveEmptySpeciesCohorts = true;
                             }
                             //PlugIn.ModelCore.UI.WriteLine("Removed cohort with mortality without crashing");
                         } else {
@@ -225,7 +225,7 @@ namespace Landis.Extension.Succession.ForC
                         }
                     }
                 }
-                foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
+                /* foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
                     SpeciesCohorts concreteSpeciesCohorts = (SpeciesCohorts)speciesCohorts;
                     if (biomassTransfer.TryGetValue(concreteSpeciesCohorts.Species, out Dictionary<ushort, int> speciesBiomassTransfer)) {
                         foreach (var cohort in concreteSpeciesCohorts) {
@@ -238,7 +238,7 @@ namespace Landis.Extension.Succession.ForC
                             }
                         }
                     }
-                }
+                } */
                 foreach (var species in biomassTransfer) {
                     foreach (var cohort in species.Value) {
                         siteCohorts.AddNewCohort(species.Key, cohort.Key, cohort.Value, new ExpandoObject());
@@ -248,10 +248,7 @@ namespace Landis.Extension.Succession.ForC
                 
                 // exists to compensate for underlying landis libraries not correctly handling empty species cohorts during the growth phase.
                 // I do not like this solution
-                if (emptySpeciesCohortsToRemove.Count > 0) {
-                    if (emptySpeciesCohortsToRemove.Count > 1) {
-                        PlugIn.ModelCore.UI.WriteLine($"Empty species cohorts to remove: {emptySpeciesCohortsToRemove.Count}");
-                    }
+                if (mayHaveToRemoveEmptySpeciesCohorts) {
                     int actuallyRemoved = 0;
                     var newSiteCohorts = new SiteCohorts();
                     foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
@@ -269,9 +266,6 @@ namespace Landis.Extension.Succession.ForC
                         } */
                     }
                     SiteVars.Cohorts[site] = newSiteCohorts;
-                    if (emptySpeciesCohortsToRemove.Count != actuallyRemoved) {
-                        PlugIn.ModelCore.UI.WriteLine($"Discrepancy in empty species cohorts to remove: {emptySpeciesCohortsToRemove.Count} != {actuallyRemoved}");
-                    }
                 }
             }
         }

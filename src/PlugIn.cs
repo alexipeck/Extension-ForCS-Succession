@@ -180,6 +180,8 @@ namespace Landis.Extension.Succession.ForC
                     }
                 }
                 
+                var emptySpeciesCohortsToRemove = new List<ISpeciesCohorts>();
+                
                 foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
                     var indexesToDelete = new List<(int, bool)>();
                     SpeciesCohorts concreteSpeciesCohorts = (SpeciesCohorts)speciesCohorts;
@@ -214,15 +216,31 @@ namespace Landis.Extension.Succession.ForC
                     indexesToDelete.Reverse();
                     foreach (var (index, withMortality) in indexesToDelete) {
                         if (withMortality) {
-                            concreteSpeciesCohorts.RemoveCohort(index, concreteSpeciesCohorts[index], site, null);
+                            ExtensionType mortalityDisturbance = new ExtensionType("disturbance:mortality");
+                            concreteSpeciesCohorts.RemoveCohort(index, concreteSpeciesCohorts[index], site, mortalityDisturbance);
                             if (concreteSpeciesCohorts.Count == 0) {
-                                PlugIn.ModelCore.UI.WriteLine($"It will crash next growth phase because this species cohort is now empty.");
+                                //PlugIn.ModelCore.UI.WriteLine($"Species cohort is now empty for {concreteSpeciesCohorts.Species.Name} at site ({site.Location.Row},{site.Location.Column})");
+                                emptySpeciesCohortsToRemove.Add(speciesCohorts);
                             }
-                            PlugIn.ModelCore.UI.WriteLine("Removed cohort with mortality without crashing");
+                            //PlugIn.ModelCore.UI.WriteLine("Removed cohort with mortality without crashing");
                         } else {
                             concreteSpeciesCohorts.RemoveCohortWithoutMortality(index, concreteSpeciesCohorts[index], site, null);
                         }
                     }
+                }
+                
+                if (emptySpeciesCohortsToRemove.Count > 0) {
+                    var newSiteCohorts = new SiteCohorts();
+                    foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
+                        if (!emptySpeciesCohortsToRemove.Contains(speciesCohorts)) {
+                            foreach (ICohort cohort in speciesCohorts) {
+                                newSiteCohorts.AddNewCohort(cohort.Species, cohort.Data.Age, cohort.Data.Biomass, cohort.Data.AdditionalParameters);
+                            }
+                        } else {
+                            //PlugIn.ModelCore.UI.WriteLine($"Removed empty species cohort for {speciesCohorts.Species.Name} at site ({site.Location.Row},{site.Location.Column})");
+                        }
+                    }
+                    SiteVars.Cohorts[site] = newSiteCohorts;
                 }
                 foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
                     SpeciesCohorts concreteSpeciesCohorts = (SpeciesCohorts)speciesCohorts;
@@ -302,6 +320,11 @@ namespace Landis.Extension.Succession.ForC
                     if (disturbanceType.IsMemberOf("disturbance:fire"))
                     {
                         Reproduction.CheckForPostFireRegen(eventArgs.Cohort, site);
+                    }
+                    else if (disturbanceType.IsMemberOf("disturbance:mortality"))
+                    {
+                        SiteVars.soilClass[site].CollectBiomassMortality(species, cohort.Data.Age, wood, foliar, 0);
+                        SiteVars.soilClass[site].CollectBiomassMortality(species, cohort.Data.Age, Roots.CoarseRoot, Roots.FineRoot, 1);
                     }
                     else
                     {

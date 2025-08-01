@@ -216,8 +216,7 @@ namespace Landis.Extension.Succession.ForC
                     indexesToDelete.Reverse();
                     foreach (var (index, withMortality) in indexesToDelete) {
                         if (withMortality) {
-                            ExtensionType mortalityDisturbance = new ExtensionType("disturbance:mortality");
-                            concreteSpeciesCohorts.RemoveCohort(index, concreteSpeciesCohorts[index], site, mortalityDisturbance);
+                            concreteSpeciesCohorts.RemoveCohort(index, concreteSpeciesCohorts[index], site, null);
                             if (concreteSpeciesCohorts.Count == 0) {
                                 //PlugIn.ModelCore.UI.WriteLine($"Species cohort is now empty for {concreteSpeciesCohorts.Species.Name} at site ({site.Location.Row},{site.Location.Column})");
                                 emptySpeciesCohortsToRemove.Add(speciesCohorts);
@@ -320,11 +319,6 @@ namespace Landis.Extension.Succession.ForC
                     if (disturbanceType.IsMemberOf("disturbance:fire"))
                     {
                         Reproduction.CheckForPostFireRegen(eventArgs.Cohort, site);
-                    }
-                    else if (disturbanceType.IsMemberOf("disturbance:mortality"))
-                    {
-                        SiteVars.soilClass[site].CollectBiomassMortality(species, cohort.Data.Age, wood, foliar, 0);
-                        SiteVars.soilClass[site].CollectBiomassMortality(species, cohort.Data.Age, Roots.CoarseRoot, Roots.FineRoot, 1);
                     }
                     else
                     {

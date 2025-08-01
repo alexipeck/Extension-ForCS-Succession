@@ -163,8 +163,6 @@ namespace Landis.Extension.Succession.ForC
                 speciesNameToISpecies[species.Name] = species;
             }
             
-            //TODO: Add user specified transition matrix
-            
             foreach (ActiveSite site in sites) {
                 SiteCohorts siteCohorts = SiteVars.Cohorts[site];
                 
@@ -227,20 +225,6 @@ namespace Landis.Extension.Succession.ForC
                         }
                     }
                 }
-                
-                if (emptySpeciesCohortsToRemove.Count > 0) {
-                    var newSiteCohorts = new SiteCohorts();
-                    foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
-                        if (!emptySpeciesCohortsToRemove.Contains(speciesCohorts)) {
-                            foreach (ICohort cohort in speciesCohorts) {
-                                newSiteCohorts.AddNewCohort(cohort.Species, cohort.Data.Age, cohort.Data.Biomass, cohort.Data.AdditionalParameters);
-                            }
-                        } else {
-                            //PlugIn.ModelCore.UI.WriteLine($"Removed empty species cohort for {speciesCohorts.Species.Name} at site ({site.Location.Row},{site.Location.Column})");
-                        }
-                    }
-                    SiteVars.Cohorts[site] = newSiteCohorts;
-                }
                 foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
                     SpeciesCohorts concreteSpeciesCohorts = (SpeciesCohorts)speciesCohorts;
                     if (biomassTransfer.TryGetValue(concreteSpeciesCohorts.Species, out Dictionary<ushort, int> speciesBiomassTransfer)) {
@@ -261,6 +245,34 @@ namespace Landis.Extension.Succession.ForC
                     }
                 }
                 biomassTransfer.Clear();
+                
+                // exists to compensate for underlying landis libraries not correctly handling empty species cohorts during the growth phase.
+                // I do not like this solution
+                if (emptySpeciesCohortsToRemove.Count > 0) {
+                    if (emptySpeciesCohortsToRemove.Count > 1) {
+                        PlugIn.ModelCore.UI.WriteLine($"Empty species cohorts to remove: {emptySpeciesCohortsToRemove.Count}");
+                    }
+                    int actuallyRemoved = 0;
+                    var newSiteCohorts = new SiteCohorts();
+                    foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
+                        if (speciesCohorts.Count == 0) {
+                            actuallyRemoved++;
+                            continue;
+                        }
+                        //if (!emptySpeciesCohortsToRemove.Contains(speciesCohorts)) {
+                            foreach (ICohort cohort in speciesCohorts) {
+                                newSiteCohorts.AddNewCohort(cohort.Species, cohort.Data.Age, cohort.Data.Biomass, cohort.Data.AdditionalParameters);
+                            }
+                        /* } else {
+                            actuallyRemoved++;
+                            //PlugIn.ModelCore.UI.WriteLine($"Removed empty species cohort for {speciesCohorts.Species.Name} at site ({site.Location.Row},{site.Location.Column})");
+                        } */
+                    }
+                    SiteVars.Cohorts[site] = newSiteCohorts;
+                    if (emptySpeciesCohortsToRemove.Count != actuallyRemoved) {
+                        PlugIn.ModelCore.UI.WriteLine($"Discrepancy in empty species cohorts to remove: {emptySpeciesCohortsToRemove.Count} != {actuallyRemoved}");
+                    }
+                }
             }
         }
 

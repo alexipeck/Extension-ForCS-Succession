@@ -156,18 +156,20 @@ namespace Landis.Extension.Succession.ForC
 
             IEnumerable<ActiveSite> sites = /* ModelCore.Landscape */PlugIn.ModelCore.Landscape.ActiveSites;
             
-            Dictionary<ISpecies, Dictionary<ushort, int>> biomassTransfer = new Dictionary<ISpecies, Dictionary<ushort, int>>();
-
+            // Species string to ISpecies lookup
             Dictionary<string, ISpecies> speciesNameToISpecies = new Dictionary<string, ISpecies>();
             foreach (var species in PlugIn.ModelCore.Species) {
                 speciesNameToISpecies[species.Name] = species;
             }
+
+            //Dictionary<ISpecies, Dictionary<ushort, int>> biomassTransfer = new Dictionary<ISpecies, Dictionary<ushort, int>>();
+
             
+            Dictionary<ISpecies, Dictionary<ushort, int>> newSiteCohortsDictionary = new Dictionary<ISpecies, Dictionary<ushort, int>>();
             foreach (ActiveSite site in sites) {
                 SiteCohorts siteCohorts = SiteVars.Cohorts[site];
-                
-                // Debug output for specific site
-                //if ((site.Location.Row == 136 && site.Location.Column == 1) || (site.Location.Row == 2 && site.Location.Column == 2)) {
+
+                // Output existing state during timestep before any changes occur
                 foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
                     string speciesName = speciesCohorts.Species.Name;
                     foreach (ICohort cohort in speciesCohorts) {
@@ -176,97 +178,77 @@ namespace Landis.Extension.Succession.ForC
                         }
                     }
                 }
-                //}
-                
-                bool mayHaveToRemoveEmptySpeciesCohorts = false;
                 
                 foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
-                    var indexesToDelete = new List<(int, bool)>();
+                    var indexesToKill = new List<int>();
                     SpeciesCohorts concreteSpeciesCohorts = (SpeciesCohorts)speciesCohorts;
-                    /* if (parameters.IsSpeciesInDebugSet(speciesCohorts.Species.Name)) {
-                        PlugIn.ModelCore.UI.WriteLine($"Processing species: {speciesCohorts.Species.Name}");
-                    } */
-                    
+
                     //SpeciesCohorts concreteSpeciesCohorts = (SpeciesCohorts)speciesCohorts;
                     foreach (var (cohort, index) in concreteSpeciesCohorts.Select((cohort, index) => (cohort, index))) {
                         Cohort concreteCohort = (Cohort)cohort;
+
+                        //process entry through matrix
                         var transitionToSpecies = parameters.GetTransitionMatrixOutcome(speciesCohorts.Species.Name);
-                        if (transitionToSpecies != null) {
-                            //PlugIn.ModelCore.UI.WriteLine($"Transition to species: {transitionToSpecies}");
-                            if (transitionToSpecies.ToUpper() == "DEAD") {
-                                indexesToDelete.Add((index, true));
-                            } else {
-                                int transfer = (int)(concreteCohort.Data.Biomass * 0.3);
-                                ISpecies targetSpecies = speciesNameToISpecies[transitionToSpecies];
-                                if (!biomassTransfer.ContainsKey(targetSpecies)) {
-                                    biomassTransfer[targetSpecies] = new Dictionary<ushort, int>();
-                                }
-                                biomassTransfer[targetSpecies][concreteCohort.Data.Age] = transfer;
-                                if (!biomassTransfer.ContainsKey(speciesCohorts.Species)) {
-                                    biomassTransfer[speciesCohorts.Species] = new Dictionary<ushort, int>();
-                                }
-                                biomassTransfer[speciesCohorts.Species][concreteCohort.Data.Age] = concreteCohort.Data.Biomass - transfer;
-                                indexesToDelete.Add((index, false));
+
+                        //no transition will occur
+                        if (transitionToSpecies == null) {
+                            if (!newSiteCohortsDictionary.ContainsKey(speciesCohorts.Species)) {
+                                newSiteCohortsDictionary[speciesCohorts.Species] = new Dictionary<ushort, int>();
                             }
-                            
+                            if (!newSiteCohortsDictionary[speciesCohorts.Species].ContainsKey(concreteCohort.Data.Age)) {
+                                newSiteCohortsDictionary[speciesCohorts.Species][concreteCohort.Data.Age] = 0;
+                            }
+                            newSiteCohortsDictionary[speciesCohorts.Species][concreteCohort.Data.Age] += concreteCohort.Data.Biomass;
+                            continue; //short-circuit
                         }
+                        
+                        //transitions to dead
+                        if (transitionToSpecies.ToUpper() == "DEAD") {
+                            indexesToKill.Add(index);
+                            continue; //short-circuit
+                        }
+
+                        //transitions to another species
+                        int transfer = (int)(concreteCohort.Data.Biomass * 0.3); //TODO: Switch to dynamic value for biomass transfer
+                        ISpecies targetSpecies = speciesNameToISpecies[transitionToSpecies];
+
+                        //push biomass to target species cohort
+                        if (!newSiteCohortsDictionary.ContainsKey(targetSpecies)) {
+                            newSiteCohortsDictionary[targetSpecies] = new Dictionary<ushort, int>();
+                        }
+                        if (!newSiteCohortsDictionary[targetSpecies].ContainsKey(concreteCohort.Data.Age)) {
+                            newSiteCohortsDictionary[targetSpecies][concreteCohort.Data.Age] = 0;
+                        }
+                        newSiteCohortsDictionary[targetSpecies][concreteCohort.Data.Age] += transfer;
+
+                        //push biomass to original species cohort
+                        if (!newSiteCohortsDictionary.ContainsKey(speciesCohorts.Species)) {
+                            newSiteCohortsDictionary[speciesCohorts.Species] = new Dictionary<ushort, int>();
+                        }
+                        if (!newSiteCohortsDictionary[speciesCohorts.Species].ContainsKey(concreteCohort.Data.Age)) {
+                            newSiteCohortsDictionary[speciesCohorts.Species][concreteCohort.Data.Age] = 0;
+                        }
+                        newSiteCohortsDictionary[speciesCohorts.Species][concreteCohort.Data.Age] += concreteCohort.Data.Biomass - transfer;
                     }
-                    indexesToDelete.Reverse();
-                    foreach (var (index, withMortality) in indexesToDelete) {
-                        if (withMortality) {
-                            concreteSpeciesCohorts.RemoveCohort(index, concreteSpeciesCohorts[index], site, null);
-                            if (concreteSpeciesCohorts.Count == 0) {
-                                //PlugIn.ModelCore.UI.WriteLine($"Species cohort is now empty for {concreteSpeciesCohorts.Species.Name} at site ({site.Location.Row},{site.Location.Column})");
-                                mayHaveToRemoveEmptySpeciesCohorts = true;
-                            }
-                            //PlugIn.ModelCore.UI.WriteLine("Removed cohort with mortality without crashing");
-                        } else {
-                            concreteSpeciesCohorts.RemoveCohortWithoutMortality(index, concreteSpeciesCohorts[index], site, null);
-                        }
+
+                    //kill specified cohorts from this species within the original structure
+                    //this shouldn't affect the internal state as an event is triggered in .RemoveCohort()
+                    //which transfers all biomass from target cohort to decomposition pools within landis state
+                    indexesToKill.Reverse(); //reverse to eliminate index shifting issues
+                    foreach (var index in indexesToKill) {
+                        concreteSpeciesCohorts.RemoveCohort(index, concreteSpeciesCohorts[index], site, null);
+                        //PlugIn.ModelCore.UI.WriteLine("Removed cohort with mortality without crashing");
                     }
                 }
-                /* foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
-                    SpeciesCohorts concreteSpeciesCohorts = (SpeciesCohorts)speciesCohorts;
-                    if (biomassTransfer.TryGetValue(concreteSpeciesCohorts.Species, out Dictionary<ushort, int> speciesBiomassTransfer)) {
-                        foreach (var cohort in concreteSpeciesCohorts) {
-                            Cohort concreteCohort = (Cohort)cohort;
-                            if (speciesBiomassTransfer.TryGetValue(concreteCohort.Data.Age, out int transfer)) {
-                                speciesBiomassTransfer.Remove(concreteCohort.Data.Age);
-                                if ((site.Location.Row == 136 && site.Location.Column == 1) || (site.Location.Row == 2 && site.Location.Column == 2)) {
-                                    PlugIn.ModelCore.UI.WriteLine($"Transferring to site({site.Location.Row},{site.Location.Column}), species: {concreteCohort.Species.Name}, age: {concreteCohort.Data.Age}, transfer: {transfer}");
-                                }
-                            }
-                        }
-                    }
-                } */
-                foreach (var species in biomassTransfer) {
+
+                var newSiteCohorts = new SiteCohorts();
+                foreach (var species in newSiteCohortsDictionary) {
                     foreach (var cohort in species.Value) {
-                        siteCohorts.AddNewCohort(species.Key, cohort.Key, cohort.Value, new ExpandoObject());
+                        newSiteCohorts.AddNewCohort(species.Key, cohort.Key, cohort.Value, new ExpandoObject());
                     }
                 }
-                biomassTransfer.Clear();
-                
-                // exists to compensate for underlying landis libraries not correctly handling empty species cohorts during the growth phase.
-                // I do not like this solution
-                if (mayHaveToRemoveEmptySpeciesCohorts) {
-                    int actuallyRemoved = 0;
-                    var newSiteCohorts = new SiteCohorts();
-                    foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
-                        if (speciesCohorts.Count == 0) {
-                            actuallyRemoved++;
-                            continue;
-                        }
-                        //if (!emptySpeciesCohortsToRemove.Contains(speciesCohorts)) {
-                            foreach (ICohort cohort in speciesCohorts) {
-                                newSiteCohorts.AddNewCohort(cohort.Species, cohort.Data.Age, cohort.Data.Biomass, cohort.Data.AdditionalParameters);
-                            }
-                        /* } else {
-                            actuallyRemoved++;
-                            //PlugIn.ModelCore.UI.WriteLine($"Removed empty species cohort for {speciesCohorts.Species.Name} at site ({site.Location.Row},{site.Location.Column})");
-                        } */
-                    }
-                    SiteVars.Cohorts[site] = newSiteCohorts;
-                }
+                SiteVars.Cohorts[site] = newSiteCohorts;
+                newSiteCohortsDictionary.Clear();
             }
         }
 

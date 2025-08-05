@@ -1036,25 +1036,19 @@ namespace Landis.Extension.Succession.ForC
         }
 
         public string GetTransitionMatrixOutcome(string speciesName) {
-            if (speciesTransitionMatrix.TryGetValue(speciesName, out Dictionary<string, double> species_transitions)) {
-                /* var oddsList = new List<string>();
-                foreach (var transition in species_transitions) {
-                    oddsList.Add($"{transition.Key}:{transition.Value:F2}");
-                }
-                PlugIn.ModelCore.UI.WriteLine($"{speciesName}: {string.Join(",", oddsList)}"); */
-                
-                Random rand = new Random();
-                double random = rand.NextDouble() * 100.0;
-                
-                double cumulativeCheck = 0.0;
-                foreach (var transition in species_transitions) {
-                    cumulativeCheck += transition.Value;
-                    if (random <= cumulativeCheck) {
-                        if (transition.Key == speciesName) {
-                            return null;
-                        }
-                        return transition.Key;
+            if (!speciesTransitionMatrix.TryGetValue(speciesName, out Dictionary<string, double> species_transitions)) {
+                return null;
+            }
+            Random rand = new Random();
+            double random = rand.NextDouble();
+            double cumulativeCheck = 0.0;
+            foreach (var transition in species_transitions) {
+                cumulativeCheck += transition.Value;
+                if (random <= cumulativeCheck) {
+                    if (transition.Key == speciesName) {
+                        return null;
                     }
+                    return transition.Key;
                 }
             }
             return null;

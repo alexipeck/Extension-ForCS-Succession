@@ -161,9 +161,6 @@ namespace Landis.Extension.Succession.ForC
             foreach (var species in PlugIn.ModelCore.Species) {
                 speciesNameToISpecies[species.Name] = species;
             }
-
-            //Dictionary<ISpecies, Dictionary<ushort, int>> biomassTransfer = new Dictionary<ISpecies, Dictionary<ushort, int>>();
-
             
             Dictionary<ISpecies, Dictionary<ushort, int>> newSiteCohortsDictionary = new Dictionary<ISpecies, Dictionary<ushort, int>>();
             foreach (ActiveSite site in sites) {
@@ -241,9 +238,13 @@ namespace Landis.Extension.Succession.ForC
                     }
                 }
 
+                //rewrite SiteCohorts() regardless of changes
+                //TODO: Do a clone of SiteCohorts minus the cohortData 
                 var newSiteCohorts = new SiteCohorts();
                 foreach (var species in newSiteCohortsDictionary) {
+                    PlugIn.ModelCore.UI.WriteLine($"    DEBUG: Species: {species.Key.Name}");
                     foreach (var cohort in species.Value) {
+                        PlugIn.ModelCore.UI.WriteLine($"        DEBUG: Cohort: {cohort.Key}, Biomass: {cohort.Value}");
                         newSiteCohorts.AddNewCohort(species.Key, cohort.Key, cohort.Value, new ExpandoObject());
                     }
                 }

@@ -189,7 +189,7 @@ namespace Landis.Extension.Succession.ForC
                     if (!double.TryParse(columns[i], out double probability)) {
                         throw new InputValueException(columns[i], $"Invalid probability value '{columns[i]}' on line {lineNum}, column {i + 1}.");
                     }
-                    if (probability < 0 || probability > 100) {
+                    if (probability < 0.0 || probability > 1.0) {
                         throw new InputValueException(columns[i], $"Probability value '{columns[i]}' on line {lineNum}, column {i + 1} must be between 0 and 100.");
                     }
                     
@@ -198,8 +198,8 @@ namespace Landis.Extension.Succession.ForC
                     totalProbability += probability;
                 }
                 
-                if (totalProbability != 100.0) {
-                    throw new InputValueException(sourceSpecies, $"Probabilities for species '{sourceSpecies}' on line {lineNum} must sum to 100% (current sum: {totalProbability}%).");
+                if (totalProbability != 1.0) {
+                    throw new InputValueException(sourceSpecies, $"Probabilities for species '{sourceSpecies}' on line {lineNum} must sum to 1.0 (current sum: {totalProbability}%).");
                 }
             }
             

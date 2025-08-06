@@ -248,6 +248,10 @@ namespace Landis.Extension.Succession.ForC
                         newSiteCohorts.AddNewCohort(species.Key, cohort.Key, cohort.Value, new ExpandoObject());
                     }
                 }
+                foreach (ISpeciesCohorts speciesCohorts in newSiteCohorts) {
+                    SpeciesCohorts concreteSpeciesCohorts = (SpeciesCohorts)speciesCohorts;
+                    concreteSpeciesCohorts.UpdateMaturePresent();
+                }
                 SiteVars.Cohorts[site] = newSiteCohorts;
                 newSiteCohortsDictionary.Clear();
             }

@@ -129,31 +129,66 @@ namespace Landis.Extension.Succession.ForC
         //---------------------------------------------------------------------
         public override void Run()
         {
-            if (PlugIn.ModelCore.CurrentTime > 0 && SiteVars.CapacityReduction == null)
-                SiteVars.CapacityReduction = PlugIn.ModelCore.GetSiteVar<double>("Harvest.CapacityReduction");
+            ////////
+            //DEBUG PARAMETERS
+            bool disableSuccession = false;
+            bool disableDP = false;
+            bool disableDPKill = false;
+            bool debugOnlyOneTransferPerSitePerTimestep = true;
+            bool outputTransitions = true;
+            ////////
 
-            SiteVars.FireSeverity = PlugIn.ModelCore.GetSiteVar<byte>("Fire.Severity");
+            if (!disableSuccession) {
+                foreach (ActiveSite site in PlugIn.ModelCore.Landscape.ActiveSites) {
+                    foreach (ISpeciesCohorts speciesCohorts in SiteVars.Cohorts[site]) {
+                        string speciesName = speciesCohorts.Species.Name;
+                        foreach (ICohort cohort in speciesCohorts) {
+                            if (parameters.IsSpeciesInDebugSet(speciesName)) {
+                                PlugIn.ModelCore.UI.WriteLine($"Before: Site: ({site.Location.Row},{site.Location.Column}), Species: {speciesName}, Age: {cohort.Data.Age}, Biomass: {cohort.Data.Biomass}");
+                            }
+                        }
+                    }
+                }
+                if (PlugIn.ModelCore.CurrentTime > 0 && SiteVars.CapacityReduction == null)
+                    SiteVars.CapacityReduction = PlugIn.ModelCore.GetSiteVar<double>("Harvest.CapacityReduction");
 
-            //EcoregionData.GenerateNewClimate(PlugIn.ModelCore.CurrentTime, Timestep); //LANDIS CLIMATE LIBRARY
-            EcoregionData.GetAnnualTemperature(Timestep, 0);                            //ForCS CLIMATE
-                      
-            SpeciesData.GenerateNewANPPandMaxBiomass(Timestep, 0);
-            //Reproduction.ChangeEstablishProbabilities(Util.ToArray<double>(SpeciesData.EstablishProbability));
+                SiteVars.FireSeverity = PlugIn.ModelCore.GetSiteVar<byte>("Fire.Severity");
 
-            base.RunReproductionFirst();
+                //EcoregionData.GenerateNewClimate(PlugIn.ModelCore.CurrentTime, Timestep); //LANDIS CLIMATE LIBRARY
+                EcoregionData.GetAnnualTemperature(Timestep, 0);                            //ForCS CLIMATE
+                        
+                SpeciesData.GenerateNewANPPandMaxBiomass(Timestep, 0);
+                //Reproduction.ChangeEstablishProbabilities(Util.ToArray<double>(SpeciesData.EstablishProbability));
 
-            //write the maps, if the timestep is right
-            if(parameters.OutputMap > 0)   //0 = don't print
-            {  
-                if(PlugIn.ModelCore.CurrentTime % parameters.OutputMap == 0)
-                {
-                    Outputs.WriteMaps(parameters.OutputMapPath, parameters.OutputMap);
+                base.RunReproductionFirst();
+
+                //write the maps, if the timestep is right
+                if(parameters.OutputMap > 0)   //0 = don't print
+                {  
+                    if(PlugIn.ModelCore.CurrentTime % parameters.OutputMap == 0)
+                    {
+                        Outputs.WriteMaps(parameters.OutputMapPath, parameters.OutputMap);
+                    }
+                }
+
+                // Clear list of cohorts to add after growth phase for later
+                siteCohortsToAdd.Clear();
+
+                foreach (ActiveSite site in PlugIn.ModelCore.Landscape.ActiveSites) {
+                    foreach (ISpeciesCohorts speciesCohorts in SiteVars.Cohorts[site]) {
+                        string speciesName = speciesCohorts.Species.Name;
+                        foreach (ICohort cohort in speciesCohorts) {
+                            if (parameters.IsSpeciesInDebugSet(speciesName)) {
+                                PlugIn.ModelCore.UI.WriteLine($"After: Site: ({site.Location.Row},{site.Location.Column}), Species: {speciesName}, Age: {cohort.Data.Age}, Biomass: {cohort.Data.Biomass}");
+                            }
+                        }
+                    }
                 }
             }
-
-            // Clear list of cohorts to add after growth phase for later
-            siteCohortsToAdd.Clear();
-
+            
+            if (disableDP) {
+                return;
+            }
             IEnumerable<ActiveSite> sites = /* ModelCore.Landscape */PlugIn.ModelCore.Landscape.ActiveSites;
             
             // Species string to ISpecies lookup
@@ -175,7 +210,7 @@ namespace Landis.Extension.Succession.ForC
                         }
                     }
                 }
-                
+                bool hasTransitioned = false;
                 foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
                     var indexesToKill = new List<int>();
                     SpeciesCohorts concreteSpeciesCohorts = (SpeciesCohorts)speciesCohorts;
@@ -198,15 +233,36 @@ namespace Landis.Extension.Succession.ForC
                             newSiteCohortsDictionary[speciesCohorts.Species][concreteCohort.Data.Age] += concreteCohort.Data.Biomass;
                             continue; //short-circuit
                         }
-                        
                         //transitions to dead
                         if (transitionToSpecies.ToUpper() == "DEAD") {
-                            indexesToKill.Add(index);
+                            if (disableDPKill) {
+                                if (!newSiteCohortsDictionary.ContainsKey(speciesCohorts.Species)) {
+                                    newSiteCohortsDictionary[speciesCohorts.Species] = new Dictionary<ushort, int>();
+                                }
+                                if (!newSiteCohortsDictionary[speciesCohorts.Species].ContainsKey(concreteCohort.Data.Age)) {
+                                    newSiteCohortsDictionary[speciesCohorts.Species][concreteCohort.Data.Age] = 0;
+                                }
+                                newSiteCohortsDictionary[speciesCohorts.Species][concreteCohort.Data.Age] += concreteCohort.Data.Biomass;
+                            } else {
+                                indexesToKill.Add(index);
+                            }
+                            if (outputTransitions && (!debugOnlyOneTransferPerSitePerTimestep || !hasTransitioned) && !disableDPKill) {
+                                PlugIn.ModelCore.UI.WriteLine($"Transitioned to dead: Age: {concreteCohort.Data.Age}, Biomass: {concreteCohort.Data.Biomass}, Species: {speciesCohorts.Species.Name}");
+                            }
+                        
                             continue; //short-circuit
                         }
 
+                        double biomassTransferModifier = 0.3; //TODO: Switch to dynamic value for biomass transfer
+                        if (debugOnlyOneTransferPerSitePerTimestep) {
+                            if (hasTransitioned == true) {
+                                biomassTransferModifier = 0.0;
+                            }
+                            hasTransitioned = true;
+                        }
+
                         //transitions to another species
-                        int transfer = (int)(concreteCohort.Data.Biomass * 0.3); //TODO: Switch to dynamic value for biomass transfer
+                        int transfer = (int)(concreteCohort.Data.Biomass * biomassTransferModifier);
                         ISpecies targetSpecies = speciesNameToISpecies[transitionToSpecies];
 
                         //push biomass to target species cohort
@@ -217,6 +273,7 @@ namespace Landis.Extension.Succession.ForC
                             newSiteCohortsDictionary[targetSpecies][concreteCohort.Data.Age] = 0;
                         }
                         newSiteCohortsDictionary[targetSpecies][concreteCohort.Data.Age] += transfer;
+                        
 
                         //push biomass to original species cohort
                         if (!newSiteCohortsDictionary.ContainsKey(speciesCohorts.Species)) {
@@ -226,6 +283,9 @@ namespace Landis.Extension.Succession.ForC
                             newSiteCohortsDictionary[speciesCohorts.Species][concreteCohort.Data.Age] = 0;
                         }
                         newSiteCohortsDictionary[speciesCohorts.Species][concreteCohort.Data.Age] += concreteCohort.Data.Biomass - transfer;
+                        if (outputTransitions && (!debugOnlyOneTransferPerSitePerTimestep || !hasTransitioned)) {
+                            PlugIn.ModelCore.UI.WriteLine($"Transferred {transfer} biomass from {speciesCohorts.Species.Name} to {targetSpecies.Name}");
+                        }
                     }
 
                     //kill specified cohorts from this species within the original structure

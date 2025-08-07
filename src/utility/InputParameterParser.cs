@@ -184,7 +184,6 @@ namespace Landis.Extension.Succession.ForC
                 speciesOrderList.Add(sourceSpecies);
                 speciesTransitionMatrix[sourceSpecies] = new Dictionary<string, double>();
                 
-                double totalProbability = 0.0;
                 for (int i = 1; i < columns.Length; i++) {
                     if (!double.TryParse(columns[i], out double probability)) {
                         throw new InputValueException(columns[i], $"Invalid probability value '{columns[i]}' on line {lineNum}, column {i + 1}.");
@@ -194,26 +193,13 @@ namespace Landis.Extension.Succession.ForC
                     }
                     
                     var targetSpecies = columnHeaders[i];
-                    speciesTransitionMatrix[sourceSpecies][targetSpecies] = probability;
-                    totalProbability += probability;
-                }
-                
-                if (totalProbability != 1.0) {
-                    throw new InputValueException(sourceSpecies, $"Probabilities for species '{sourceSpecies}' on line {lineNum} must sum to 1.0 (current sum: {totalProbability}%).");
+                    if (probability > 0.0) {
+                        speciesTransitionMatrix[sourceSpecies][targetSpecies] = probability;
+                    }
                 }
             }
             
             parameters.SpeciesTransitionMatrix = speciesTransitionMatrix;
-
-            foreach (var species in speciesOrderList) {
-                PlugIn.ModelCore.UI.WriteLine($"Species: {species}");
-            }
-            foreach (var species in speciesTransitionMatrix) {
-                PlugIn.ModelCore.UI.WriteLine($"Species: {species.Key}");
-                foreach (var transition in species.Value) {
-                    PlugIn.ModelCore.UI.WriteLine($"  Transition: {transition.Key}, Probability: {transition.Value * 100}%");
-                }
-            }
             
             PlugIn.ModelCore.UI.WriteLine("Species Transition Matrix:");
             foreach (var outerEntry in speciesTransitionMatrix)

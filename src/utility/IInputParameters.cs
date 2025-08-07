@@ -123,6 +123,6 @@ namespace Landis.Extension.Succession.ForC
         //    get;
         //}
         Dictionary<string, Dictionary<string, double>> SpeciesTransitionMatrix { get; set; }
-        string GetTransitionMatrixOutcome(string speciesName);
+        string GetTransitionMatrixOutcome(string speciesName, bool outputProbability);
     }
 }

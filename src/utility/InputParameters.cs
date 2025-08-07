@@ -1017,7 +1017,7 @@ namespace Landis.Extension.Succession.ForC
             m_nOutputToFPS = newValue.Actual;
         }
 
-        public string GetTransitionMatrixOutcome(string speciesName) {
+        public string GetTransitionMatrixOutcome(string speciesName, bool outputProbability) {
             if (!speciesTransitionMatrix.TryGetValue(speciesName, out Dictionary<string, double> species_transitions)) {
                 return null;
             }
@@ -1029,6 +1029,9 @@ namespace Landis.Extension.Succession.ForC
                 if (random <= cumulativeCheck) {
                     if (transition.Key == speciesName) {
                         return null;
+                    }
+                    if (outputProbability) {
+                        PlugIn.ModelCore.UI.WriteLine($"Transitioning {speciesName} to {transition.Key} based on a {transition.Value * 100}% probability");
                     }
                     return transition.Key;
                 }

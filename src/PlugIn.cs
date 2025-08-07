@@ -137,7 +137,7 @@ namespace Landis.Extension.Succession.ForC
 
             bool debugDisableDiseaseProgression = false;
             bool debugDisableDiseaseProgressionKill = false;
-            bool debugOnlyOneTransferPerSitePerTimestep = false;
+            bool debugOnlyOneTransferPerSitePerTimestep = true;
             bool debugOutputTransitions = true;
             bool debugDumpSiteInformation = true;
             ////////
@@ -212,7 +212,7 @@ namespace Landis.Extension.Succession.ForC
                         Cohort concreteCohort = (Cohort)cohort;
 
                         //process entry through matrix
-                        string transitionToSpecies = parameters.GetTransitionMatrixOutcome(speciesCohorts.Species.Name);
+                        string transitionToSpecies = parameters.GetTransitionMatrixOutcome(speciesCohorts.Species.Name, !(debugOnlyOneTransferPerSitePerTimestep && hasTransitioned));
 
                         //no transition will occur
                         if (transitionToSpecies == null) {

@@ -137,7 +137,7 @@ namespace Landis.Extension.Succession.ForC
 
             bool debugDisableDiseaseProgression = false;
             bool debugDisableDiseaseProgressionKill = false;
-            bool debugOnlyOneTransferPerSitePerTimestep = true;
+            bool debugOnlyOneTransferPerSitePerTimestep = false;
             bool debugOutputTransitions = true;
             bool debugDumpSiteInformation = true;
             ////////
@@ -236,20 +236,16 @@ namespace Landis.Extension.Succession.ForC
                                     newSiteCohortsDictionary[speciesCohorts.Species][concreteCohort.Data.Age] = 0;
                                 }
                                 newSiteCohortsDictionary[speciesCohorts.Species][concreteCohort.Data.Age] += concreteCohort.Data.Biomass;
-                                if (debugOutputTransitions && (!debugOnlyOneTransferPerSitePerTimestep || !hasTransitioned)) {
+                                if (debugOutputTransitions) {
                                     PlugIn.ModelCore.UI.WriteLine($"(inert) Transitioned to dead: Age: {concreteCohort.Data.Age}, Biomass: {concreteCohort.Data.Biomass}, Species: {speciesCohorts.Species.Name}");
-                                } else {
-                                    PlugIn.ModelCore.UI.WriteLine("Test1");
                                 }
                                 hasTransitioned = true;
                                 continue; //short-circuit
                             }
 
                             indexesToKill.Add(index);
-                            if (debugOutputTransitions && (!debugOnlyOneTransferPerSitePerTimestep || !hasTransitioned)) {
+                            if (debugOutputTransitions) {
                                 PlugIn.ModelCore.UI.WriteLine($"Transitioned to dead: Age: {concreteCohort.Data.Age}, Biomass: {concreteCohort.Data.Biomass}, Species: {speciesCohorts.Species.Name}");
-                            } else {
-                                PlugIn.ModelCore.UI.WriteLine($"TRUTH: {debugOutputTransitions} && ({debugOnlyOneTransferPerSitePerTimestep}, hasTransitioned: {hasTransitioned})");
                             }
                             
                             hasTransitioned = true;
@@ -257,10 +253,10 @@ namespace Landis.Extension.Succession.ForC
                         }
 
                         double biomassTransferModifier = 0.3; //TODO: Switch to dynamic value for biomass transfer
+                        if (debugOnlyOneTransferPerSitePerTimestep && hasTransitioned) {
+                            biomassTransferModifier = 0.0;
+                        }
                         if (debugOnlyOneTransferPerSitePerTimestep) {
-                            if (hasTransitioned == true) {
-                                biomassTransferModifier = 0.0;
-                            }
                             hasTransitioned = true;
                         }
 
@@ -286,11 +282,9 @@ namespace Landis.Extension.Succession.ForC
                             newSiteCohortsDictionary[speciesCohorts.Species][concreteCohort.Data.Age] = 0;
                         }
                         newSiteCohortsDictionary[speciesCohorts.Species][concreteCohort.Data.Age] += concreteCohort.Data.Biomass - transfer;
-                        if (debugOutputTransitions && (!debugOnlyOneTransferPerSitePerTimestep || !hasTransitioned)) {
+                        if (debugOutputTransitions && transfer > 0) {
                             PlugIn.ModelCore.UI.WriteLine($"Transferred {transfer} biomass from {speciesCohorts.Species.Name} to {targetSpecies.Name}");
-                        }/*  else {
-                            PlugIn.ModelCore.UI.WriteLine("Test2");
-                        } */
+                        }
                     }
 
                     //kill specified cohorts from this species within the original structure

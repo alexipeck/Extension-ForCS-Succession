@@ -198,7 +198,15 @@ namespace Landis.Extension.Succession.ForC
                     }
                 }
             }
-            
+            foreach (var species in speciesTransitionMatrix) {
+                double totalProbability = 0.0;
+                foreach (var transition in species.Value) {
+                    totalProbability += transition.Value;
+                }
+                if (totalProbability > 1.0) {
+                    throw new InputValueException(species.Key, $"Probabilities for species '{species.Key}' must sum to 1.0 or less (current sum: {totalProbability}).");
+                }
+            }
             parameters.SpeciesTransitionMatrix = speciesTransitionMatrix;
             
             PlugIn.ModelCore.UI.WriteLine("Species Transition Matrix:");

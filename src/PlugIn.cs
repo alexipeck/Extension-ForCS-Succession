@@ -293,12 +293,12 @@ namespace Landis.Extension.Succession.ForC
                     indexesToKill.Reverse(); //reverse to eliminate index shifting issues
                     foreach (var index in indexesToKill) {
                         concreteSpeciesCohorts.RemoveCohort(index, concreteSpeciesCohorts[index], site, null);
-                        //PlugIn.ModelCore.UI.WriteLine("Removed cohort with mortality without crashing");
                     }
                 }
 
                 //rewrite SiteCohorts() regardless of changes
-                //TODO: Do a clone of SiteCohorts minus the cohortData 
+                //TODO: Create a clone of SiteCohorts minus the cohortData
+                //seemingly not necessary though
                 var newSiteCohorts = new SiteCohorts();
                 foreach (var species in newSiteCohortsDictionary) {
                     foreach (var cohort in species.Value) {
@@ -362,13 +362,15 @@ namespace Landis.Extension.Succession.ForC
             {
                 if (disturbanceType == null)
                 {
-
+                    //TODO
+                    // Look into whether this is intentional
+                    // Total root biomass is calculated, but never used?
                     double totalRoot = Roots.CalculateRootBiomass(site, species, cohort.Data.Biomass);
 
                     SiteVars.soilClass[site].CollectBiomassMortality(species, cohort.Data.Age, wood, foliar, 0);
                     SiteVars.soilClass[site].CollectBiomassMortality(species, cohort.Data.Age, Roots.CoarseRoot, Roots.FineRoot, 1);
-                    if (site.DataIndex == 1)
-                        PlugIn.ModelCore.UI.WriteLine("{0} Roots from dying cohort {1}", PlugIn.ModelCore.CurrentTime, Roots.FineRoot);
+                    /* if (site.DataIndex == 1)
+                        PlugIn.ModelCore.UI.WriteLine("{0} Roots from dying cohort {1}", PlugIn.ModelCore.CurrentTime, Roots.FineRoot); */
                 }
 
 

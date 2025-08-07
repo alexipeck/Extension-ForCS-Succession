@@ -122,10 +122,7 @@ namespace Landis.Extension.Succession.ForC
         //{
         //    get;
         //}
-
-        HashSet<string> SpeciesDebugSet { get; set; }
         Dictionary<string, Dictionary<string, double>> SpeciesTransitionMatrix { get; set; }
-        bool IsSpeciesInDebugSet(string speciesName);
         string GetTransitionMatrixOutcome(string speciesName);
     }
 }

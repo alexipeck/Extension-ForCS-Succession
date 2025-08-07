@@ -105,7 +105,6 @@ namespace Landis.Extension.Succession.ForC
         //private string[] m_SnagDisturb; 
 
         private List<string> speciesOrderList;
-        private HashSet<string> speciesDebugSet;
         private Dictionary<string, Dictionary<string, double>> speciesTransitionMatrix;
 
         //---------------------------------------------------------------------
@@ -788,16 +787,6 @@ namespace Landis.Extension.Succession.ForC
         }
         //---------------------------------------------------------------------
 
-        public HashSet<string> SpeciesDebugSet
-        {
-            get {
-                return speciesDebugSet;
-            }
-            set {
-                speciesDebugSet = value;
-            }
-        }
-
         public Dictionary<string, Dictionary<string, double>> SpeciesTransitionMatrix
         {
             get {
@@ -1026,13 +1015,6 @@ namespace Landis.Extension.Succession.ForC
                 throw new InputValueException(newValue.String, "{0} must not be less than 0.", newValue.String);
 
             m_nOutputToFPS = newValue.Actual;
-        }
-
-        public bool IsSpeciesInDebugSet(string speciesName)
-        {
-            if (speciesDebugSet == null)
-                return false;
-            return speciesDebugSet.Contains(speciesName);
         }
 
         public string GetTransitionMatrixOutcome(string speciesName) {

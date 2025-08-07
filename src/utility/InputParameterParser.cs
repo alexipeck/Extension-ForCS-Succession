@@ -203,14 +203,6 @@ namespace Landis.Extension.Succession.ForC
                 }
             }
             
-            
-            
-            HashSet<string> speciesDebugSet = new HashSet<string>();
-            foreach (var species in speciesTransitionMatrix) {
-                speciesDebugSet.Add(species.Key);
-            }
-            
-            parameters.SpeciesDebugSet = speciesDebugSet;
             parameters.SpeciesTransitionMatrix = speciesTransitionMatrix;
 
             foreach (var species in speciesOrderList) {
@@ -219,7 +211,7 @@ namespace Landis.Extension.Succession.ForC
             foreach (var species in speciesTransitionMatrix) {
                 PlugIn.ModelCore.UI.WriteLine($"Species: {species.Key}");
                 foreach (var transition in species.Value) {
-                    PlugIn.ModelCore.UI.WriteLine($"  Transition: {transition.Key}, Probability: {transition.Value}%");
+                    PlugIn.ModelCore.UI.WriteLine($"  Transition: {transition.Key}, Probability: {transition.Value * 100}%");
                 }
             }
             
@@ -230,12 +222,12 @@ namespace Landis.Extension.Succession.ForC
                 foreach (var innerEntry in outerEntry.Value)
                 {
                     if (outerEntry.Key != innerEntry.Key) {
-                        PlugIn.ModelCore.UI.WriteLine($"    Target: {innerEntry.Key}, Probability: {innerEntry.Value}%");
+                        PlugIn.ModelCore.UI.WriteLine($"    Target: {innerEntry.Key}, Probability: {innerEntry.Value * 100}%");
                     }
                 }
             }
             
-            PlugIn.ModelCore.UI.WriteLine("Finished reading species order file");
+            PlugIn.ModelCore.UI.WriteLine("Finished reading species matrix file");
 
             InputVar<SeedingAlgorithms> seedAlg = new InputVar<SeedingAlgorithms>(Names.SeedingAlgorithm);
             ReadVar(seedAlg);

@@ -178,7 +178,7 @@ namespace Landis.Extension.Succession.ForC
                     }
                 }
                 if (!found) {
-                    throw new InputValueException(sourceSpecies, $"Species '{sourceSpecies}' on line {lineNum} of SpeciesOrder file does not exist in scenario species list.");
+                    throw new InputValueException(sourceSpecies, $"Species '{sourceSpecies}' on line {lineNum} of SpeciesMatrix file does not exist in scenario species list.");
                 }
                 
                 speciesOrderList.Add(sourceSpecies);
@@ -188,8 +188,11 @@ namespace Landis.Extension.Succession.ForC
                     if (!double.TryParse(columns[i], out double probability)) {
                         throw new InputValueException(columns[i], $"Invalid probability value '{columns[i]}' on line {lineNum}, column {i + 1}.");
                     }
-                    if (probability < 0.0 || probability > 1.0) {
-                        throw new InputValueException(columns[i], $"Probability value '{columns[i]}' on line {lineNum}, column {i + 1} must be between 0 and 100.");
+                    if (probability < 0.0) {
+                        throw new InputValueException(columns[i], $"Probability value '{columns[i]}' on line {lineNum}, column {i + 1} must not be less than 0.0");
+                    }
+                    if (probability > 1.0) {
+                        throw new InputValueException(columns[i], $"Probability value '{columns[i]}' on line {lineNum}, column {i + 1} must be less than or equal to 1.0");
                     }
                     
                     var targetSpecies = columnHeaders[i];

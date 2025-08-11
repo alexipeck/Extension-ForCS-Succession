@@ -137,7 +137,7 @@ namespace Landis.Extension.Succession.ForC
 
             bool debugDisableDiseaseProgression = false;
             bool debugDisableDiseaseProgressionKill = false;
-            bool debugOnlyOneTransferPerSitePerTimestep = true;
+            bool debugOnlyOneTransferPerSitePerTimestep = false;
             bool debugOutputTransitions = true;
             bool debugDumpSiteInformation = true;
             ////////
@@ -252,7 +252,7 @@ namespace Landis.Extension.Succession.ForC
                             continue; //short-circuit
                         }
 
-                        double biomassTransferModifier = 0.3; //TODO: Switch to dynamic value for biomass transfer
+                        double biomassTransferModifier = 1.0; //TODO: Switch to dynamic value for biomass transfer
                         if (debugOnlyOneTransferPerSitePerTimestep && hasTransitioned) {
                             biomassTransferModifier = 0.0;
                         }
@@ -356,7 +356,7 @@ namespace Landis.Extension.Succession.ForC
             ISpecies species = cohort.Species;
 
             double foliar = (double)cohort.ComputeNonWoodyBiomass(site);
-            double wood = ((double)cohort.Data.Biomass - foliar);
+            double wood = (double)cohort.Data.Biomass - foliar;
 
             if (eventArgs.Reduction >= 1)
             {
@@ -399,49 +399,6 @@ namespace Landis.Extension.Succession.ForC
                 //PlugIn.ModelCore.UI.WriteLine("Inputs:  {0}, {1}, {2}, {3}", fractionPartialMortality, foliar, woodInput, foliarInput);
 
                 SiteVars.soilClass[site].DisturbanceImpactsBiomass(site, cohort.Species, cohort.Data.Age, woodInput, foliarInput, disturbanceType.Name, 0);
-
-                //if (disturbanceType.IsMemberOf("disturbance:harvest"))
-                //{
-                //    if (!Disturbed[site]) // this is the first cohort killed/damaged
-                //    {
-                //        HarvestEffects.ReduceLayers(SiteVars.HarvestPrescriptionName[site], site);
-                //    }
-                //    SiteVars.soilClass[site].DisturbanceImpactsBiomass(site, cohort.Species, cohort.Age, wood, foliar, disturbanceType.Name, 0);
-                //    woodInput -= woodInput * (float)HarvestEffects.GetCohortWoodRemoval(site);
-                //    foliarInput -= foliarInput * (float)HarvestEffects.GetCohortLeafRemoval(site);
-                //}
-                //if (disturbanceType.IsMemberOf("disturbance:fire"))
-                //{
-
-                //    SiteVars.FireSeverity = PlugIn.ModelCore.GetSiteVar<byte>("Fire.Severity");
-
-                //    if (!Disturbed[site]) // this is the first cohort killed/damaged
-                //    {
-                //        SiteVars.SmolderConsumption[site] = 0.0;
-                //        SiteVars.FlamingConsumption[site] = 0.0;
-                //        if (SiteVars.FireSeverity != null && SiteVars.FireSeverity[site] > 0)
-                //            FireEffects.ReduceLayers(SiteVars.FireSeverity[site], site);
-
-                //    }
-
-                //    double live_woodFireConsumption = woodInput * (float)FireEffects.ReductionsTable[(int)SiteVars.FireSeverity[site]].CohortWoodReduction;
-                //    double live_foliarFireConsumption = foliarInput * (float)FireEffects.ReductionsTable[(int)SiteVars.FireSeverity[site]].CohortLeafReduction;
-
-                //    SiteVars.SmolderConsumption[site] += live_woodFireConsumption;
-                //    SiteVars.FlamingConsumption[site] += live_foliarFireConsumption;
-                //    woodInput -= (float)live_woodFireConsumption;
-                //    foliarInput -= (float)live_foliarFireConsumption;
-                //}
-
-                //ForestFloor.AddWoodLitter(woodInput, cohort.Species, site);
-                //ForestFloor.AddFoliageLitter(foliarInput, cohort.Species, site);
-
-                //Roots.AddCoarseRootLitter(Roots.CalculateCoarseRoot(cohort, cohort.WoodBiomass * fractionPartialMortality), cohort, cohort.Species, site);
-                //Roots.AddFineRootLitter(Roots.CalculateFineRoot(cohort, cohort.LeafBiomass * fractionPartialMortality), cohort, cohort.Species, site);
-
-                //PlugIn.ModelCore.UI.WriteLine("EVENT: Cohort Partial Mortality: species={0}, age={1}, disturbance={2}.", cohort.Species.Name, cohort.Age, disturbanceType);
-                //PlugIn.ModelCore.UI.WriteLine("       Cohort Reductions:  Foliar={0:0.00}.  Wood={1:0.00}.", HarvestEffects.GetCohortLeafRemoval(site), HarvestEffects.GetCohortLeafRemoval(site));
-                //PlugIn.ModelCore.UI.WriteLine("       InputB/TotalB:  Foliar={0:0.00}/{1:0.00}, Wood={2:0.0}/{3:0.0}.", foliarInput, cohort.LeafBiomass, woodInput, cohort.WoodBiomass);
                 Disturbed[site] = true;
             }
 

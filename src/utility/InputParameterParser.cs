@@ -141,8 +141,7 @@ namespace Landis.Extension.Succession.ForC
             ReadVar(speciesMatrixFile);
             
             // dynamically sized matrix ingestion
-            var speciesOrderList = new List<string>();
-            var speciesTransitionMatrix = new Dictionary<string, Dictionary<string, double>>();
+            var speciesTransitionMatrix = new Dictionary<string, List<(string, double)>>();
             int lineNum = 0;
             List<string> columnHeaders = null;
             
@@ -181,8 +180,7 @@ namespace Landis.Extension.Succession.ForC
                     throw new InputValueException(sourceSpecies, $"Species '{sourceSpecies}' on line {lineNum} of SpeciesMatrix file does not exist in scenario species list.");
                 }
                 
-                speciesOrderList.Add(sourceSpecies);
-                speciesTransitionMatrix[sourceSpecies] = new Dictionary<string, double>();
+                speciesTransitionMatrix[sourceSpecies] = new List<(string, double)>();
                 
                 for (int i = 1; i < columns.Length; i++) {
                     if (!double.TryParse(columns[i], out double probability)) {
@@ -197,18 +195,21 @@ namespace Landis.Extension.Succession.ForC
                     
                     var targetSpecies = columnHeaders[i];
                     if (probability > 0.0) {
-                        speciesTransitionMatrix[sourceSpecies][targetSpecies] = probability;
+                        speciesTransitionMatrix[sourceSpecies].Add((targetSpecies, probability));
                     }
                 }
             }
             foreach (var species in speciesTransitionMatrix) {
+                double remainder = 1.0;
                 double totalProbability = 0.0;
-                foreach (var transition in species.Value) {
-                    totalProbability += transition.Value;
+                foreach (var (key, value) in species.Value) {
+                    totalProbability += value;
+                    remainder -= value;
                 }
                 if (totalProbability > 1.0) {
                     throw new InputValueException(species.Key, $"Probabilities for species '{species.Key}' must sum to 1.0 or less (current sum: {totalProbability}).");
                 }
+                species.Value.Insert(0, (null, remainder));
             }
             parameters.SpeciesTransitionMatrix = speciesTransitionMatrix;
             
@@ -216,10 +217,10 @@ namespace Landis.Extension.Succession.ForC
             foreach (var outerEntry in speciesTransitionMatrix)
             {
                 PlugIn.ModelCore.UI.WriteLine($"  Source Species: {outerEntry.Key}");
-                foreach (var innerEntry in outerEntry.Value)
+                foreach (var (key, value) in outerEntry.Value)
                 {
-                    if (outerEntry.Key != innerEntry.Key) {
-                        PlugIn.ModelCore.UI.WriteLine($"    Target: {innerEntry.Key}, Probability: {innerEntry.Value * 100}%");
+                    if (outerEntry.Key != key) {
+                        PlugIn.ModelCore.UI.WriteLine($"    Target: {(key != null ? key : "null")}, Probability: {value * 100}%");
                     }
                 }
             }

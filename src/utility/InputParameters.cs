@@ -105,7 +105,7 @@ namespace Landis.Extension.Succession.ForC
         //private string[] m_SnagDisturb; 
 
         private List<string> speciesOrderList;
-        private Dictionary<string, Dictionary<string, double>> speciesTransitionMatrix;
+        private Dictionary<string, List<(string, double)>> speciesTransitionMatrix;
 
         //---------------------------------------------------------------------
         /// <summary>
@@ -787,7 +787,7 @@ namespace Landis.Extension.Succession.ForC
         }
         //---------------------------------------------------------------------
 
-        public Dictionary<string, Dictionary<string, double>> SpeciesTransitionMatrix
+        public Dictionary<string, List<(string, double)>> SpeciesTransitionMatrix
         {
             get {
                 return speciesTransitionMatrix;
@@ -1018,22 +1018,22 @@ namespace Landis.Extension.Succession.ForC
         }
 
         public string GetTransitionMatrixOutcome(string speciesName, bool outputProbability) {
-            if (!speciesTransitionMatrix.TryGetValue(speciesName, out Dictionary<string, double> species_transitions)) {
+            if (!speciesTransitionMatrix.TryGetValue(speciesName, out List<(string, double)> species_transitions)) {
                 return null;
             }
             Random rand = new Random();
             double random = rand.NextDouble();
             double cumulativeCheck = 0.0;
-            foreach (var transition in species_transitions) {
-                cumulativeCheck += transition.Value;
+            foreach (var (key, value) in species_transitions) {
+                cumulativeCheck += value;
                 if (random <= cumulativeCheck) {
-                    if (transition.Key == speciesName) {
+                    if (key == speciesName) {
                         return null;
                     }
                     if (outputProbability) {
-                        PlugIn.ModelCore.UI.WriteLine($"Transitioning {speciesName} to {transition.Key} based on a {transition.Value * 100}% probability");
+                        PlugIn.ModelCore.UI.WriteLine($"Transitioning {speciesName} to {key} based on a {value * 100}% probability");
                     }
-                    return transition.Key;
+                    return key;
                 }
             }
             return null;

@@ -204,10 +204,7 @@ namespace Landis.Extension.Succession.ForC
                 
                 bool hasTransitioned = false;
                 foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
-                    var indexesToKill = new List<int>();
                     SpeciesCohorts concreteSpeciesCohorts = (SpeciesCohorts)speciesCohorts;
-
-                    //SpeciesCohorts concreteSpeciesCohorts = (SpeciesCohorts)speciesCohorts;
                     foreach (var (cohort, index) in concreteSpeciesCohorts.Select((cohort, index) => (cohort, index))) {
                         Cohort concreteCohort = (Cohort)cohort;
 
@@ -243,7 +240,7 @@ namespace Landis.Extension.Succession.ForC
                                 continue; //short-circuit
                             }
 
-                            indexesToKill.Add(index);
+                            Cohort.CohortMortality(concreteSpeciesCohorts, concreteCohort, site, null, 1f);
                             if (debugOutputTransitions) {
                                 PlugIn.ModelCore.UI.WriteLine($"Transitioned to dead: Age: {concreteCohort.Data.Age}, Biomass: {concreteCohort.Data.Biomass}, Species: {speciesCohorts.Species.Name}");
                             }
@@ -252,7 +249,7 @@ namespace Landis.Extension.Succession.ForC
                             continue; //short-circuit
                         }
 
-                        double biomassTransferModifier = 1.0; //TODO: Switch to dynamic value for biomass transfer
+                        double biomassTransferModifier = 0.3; //TODO: Switch to dynamic value for biomass transfer
                         if (debugOnlyOneTransferPerSitePerTimestep && hasTransitioned) {
                             biomassTransferModifier = 0.0;
                         }
@@ -286,14 +283,6 @@ namespace Landis.Extension.Succession.ForC
                             PlugIn.ModelCore.UI.WriteLine($"Transferred {transfer} biomass from {speciesCohorts.Species.Name} to {targetSpecies.Name}");
                         }
                     }
-
-                    //kill specified cohorts from this species within the original structure
-                    //this shouldn't affect the internal state as an event is triggered in .RemoveCohort()
-                    //which transfers all biomass from target cohort to decomposition pools within landis state
-                    indexesToKill.Reverse(); //reverse to eliminate index shifting issues
-                    foreach (var index in indexesToKill) {
-                        concreteSpeciesCohorts.RemoveCohort(index, concreteSpeciesCohorts[index], site, null);
-                    }
                 }
 
                 //rewrite SiteCohorts() regardless of changes
@@ -320,7 +309,9 @@ namespace Landis.Extension.Succession.ForC
                     }
                 }
                 SiteVars.Cohorts[site] = newSiteCohorts;
-                newSiteCohortsDictionary.Clear();
+                foreach (var data in newSiteCohortsDictionary) {
+                    data.Value.Clear();
+                }
             }
         }
 

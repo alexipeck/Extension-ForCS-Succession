@@ -104,6 +104,8 @@ namespace Landis.Extension.Succession.ForC
         //private int[] m_SnagTimeSinceDeath;
         //private string[] m_SnagDisturb; 
 
+        private List<string> speciesOrderList;
+        private Dictionary<string, List<(string, double)>> speciesTransitionMatrix;
 
         //---------------------------------------------------------------------
         /// <summary>
@@ -785,6 +787,16 @@ namespace Landis.Extension.Succession.ForC
         }
         //---------------------------------------------------------------------
 
+        public Dictionary<string, List<(string, double)>> SpeciesTransitionMatrix
+        {
+            get {
+                return speciesTransitionMatrix;
+            }
+            set {
+                speciesTransitionMatrix = value;
+            }
+        }
+
         public InputParameters()
         {
 
@@ -1003,6 +1015,28 @@ namespace Landis.Extension.Succession.ForC
                 throw new InputValueException(newValue.String, "{0} must not be less than 0.", newValue.String);
 
             m_nOutputToFPS = newValue.Actual;
+        }
+
+        public string GetTransitionMatrixOutcome(string speciesName, bool outputProbability) {
+            if (!speciesTransitionMatrix.TryGetValue(speciesName, out List<(string, double)> species_transitions)) {
+                return null;
+            }
+            Random rand = new Random();
+            double random = rand.NextDouble();
+            double cumulativeCheck = 0.0;
+            foreach (var (key, value) in species_transitions) {
+                cumulativeCheck += value;
+                if (random <= cumulativeCheck) {
+                    if (key == speciesName) {
+                        return null;
+                    }
+                    if (outputProbability) {
+                        PlugIn.ModelCore.UI.WriteLine($"Transitioning {speciesName} to {key} based on a {value * 100}% probability");
+                    }
+                    return key;
+                }
+            }
+            return null;
         }
     }
 }

@@ -9,7 +9,8 @@ using System.Collections.Generic;
 using Landis.Utilities;
 using System;
 using System.ComponentModel;
-using System.Linq;                   //temporary - for debugging using VS2017
+using System.Linq;
+using System.Dynamic;                   //temporary - for debugging using VS2017
 
 namespace Landis.Extension.Succession.ForC
 {
@@ -120,36 +121,198 @@ namespace Landis.Extension.Succession.ForC
             AgeOnlyDisturbances.Module.Initialize();
 
             InitializeSites(parameters.InitialCommunities, parameters.InitialCommunitiesMap, modelCore);
+            PlugIn.ModelCore.UI.WriteLine("Species selected for disease progression:");
+            foreach (string speciesName in parameters.SpeciesTransitionMatrix.Keys) {
+                PlugIn.ModelCore.UI.WriteLine($"{speciesName}");
+            }
+            PlugIn.ModelCore.UI.WriteLine("");
         }
 
         //---------------------------------------------------------------------
-
         public override void Run()
         {
-            if (PlugIn.ModelCore.CurrentTime > 0 && SiteVars.CapacityReduction == null)
-                SiteVars.CapacityReduction = PlugIn.ModelCore.GetSiteVar<double>("Harvest.CapacityReduction");
+            ////////
+            //DEBUG PARAMETERS
+            bool debugDisableSuccession = false;
 
-            SiteVars.FireSeverity = PlugIn.ModelCore.GetSiteVar<byte>("Fire.Severity");
+            bool debugDisableDiseaseProgression = false;
+            bool debugDisableDiseaseProgressionKill = false;
+            bool debugOnlyOneTransferPerSitePerTimestep = false;
+            bool debugOutputTransitions = true;
+            bool debugDumpSiteInformation = true;
+            ////////
 
-            //EcoregionData.GenerateNewClimate(PlugIn.ModelCore.CurrentTime, Timestep); //LANDIS CLIMATE LIBRARY
-            EcoregionData.GetAnnualTemperature(Timestep, 0);                            //ForCS CLIMATE
-                      
-            SpeciesData.GenerateNewANPPandMaxBiomass(Timestep, 0);
-            //Reproduction.ChangeEstablishProbabilities(Util.ToArray<double>(SpeciesData.EstablishProbability));
+            if (!debugDisableSuccession) {
+                foreach (ActiveSite site in PlugIn.ModelCore.Landscape.ActiveSites) {
+                    foreach (ISpeciesCohorts speciesCohorts in SiteVars.Cohorts[site]) {
+                        foreach (ICohort cohort in speciesCohorts) {
+                            PlugIn.ModelCore.UI.WriteLine($"Before succession: Site: ({site.Location.Row},{site.Location.Column}), Species: {speciesCohorts.Species.Name}, Age: {cohort.Data.Age}, Biomass: {cohort.Data.Biomass}");
+                        }
+                    }
+                }
+                if (PlugIn.ModelCore.CurrentTime > 0 && SiteVars.CapacityReduction == null)
+                    SiteVars.CapacityReduction = PlugIn.ModelCore.GetSiteVar<double>("Harvest.CapacityReduction");
 
-            base.RunReproductionFirst();
+                SiteVars.FireSeverity = PlugIn.ModelCore.GetSiteVar<byte>("Fire.Severity");
 
-            //write the maps, if the timestep is right
-            if(parameters.OutputMap > 0)   //0 = don't print
-            {  
-                if(PlugIn.ModelCore.CurrentTime % parameters.OutputMap == 0)
-                {
-                    Outputs.WriteMaps(parameters.OutputMapPath, parameters.OutputMap);
+                //EcoregionData.GenerateNewClimate(PlugIn.ModelCore.CurrentTime, Timestep); //LANDIS CLIMATE LIBRARY
+                EcoregionData.GetAnnualTemperature(Timestep, 0);                            //ForCS CLIMATE
+                        
+                SpeciesData.GenerateNewANPPandMaxBiomass(Timestep, 0);
+                //Reproduction.ChangeEstablishProbabilities(Util.ToArray<double>(SpeciesData.EstablishProbability));
+
+                base.RunReproductionFirst();
+
+                //write the maps, if the timestep is right
+                if(parameters.OutputMap > 0)   //0 = don't print
+                {  
+                    if(PlugIn.ModelCore.CurrentTime % parameters.OutputMap == 0)
+                    {
+                        Outputs.WriteMaps(parameters.OutputMapPath, parameters.OutputMap);
+                    }
+                }
+
+                // Clear list of cohorts to add after growth phase for later
+                siteCohortsToAdd.Clear();
+            }
+            
+            //Disease Progression
+            if (debugDisableDiseaseProgression) {
+                return;
+            }
+            IEnumerable<ActiveSite> sites = /* ModelCore.Landscape */PlugIn.ModelCore.Landscape.ActiveSites;
+            
+            // Species string to ISpecies lookup
+            Dictionary<string, ISpecies> speciesNameToISpecies = new Dictionary<string, ISpecies>();
+            foreach (var species in PlugIn.ModelCore.Species) {
+                speciesNameToISpecies[species.Name] = species;
+            }
+            
+            Dictionary<ISpecies, Dictionary<ushort, int>> newSiteCohortsDictionary = new Dictionary<ISpecies, Dictionary<ushort, int>>();
+            foreach (ActiveSite site in sites) {
+                SiteCohorts siteCohorts = SiteVars.Cohorts[site];
+
+                
+                if (debugDumpSiteInformation) {
+                    // Output existing state during timestep before any changes occur
+                    foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
+                        foreach (ICohort cohort in speciesCohorts) {
+                            PlugIn.ModelCore.UI.WriteLine($"Before disease progression: Site: ({site.Location.Row},{site.Location.Column}), Species: {speciesCohorts.Species.Name}, Age: {cohort.Data.Age}, Biomass: {cohort.Data.Biomass}");
+                        }
+                    }
+                }
+                
+                bool hasTransitioned = false;
+                foreach (ISpeciesCohorts speciesCohorts in siteCohorts) {
+                    SpeciesCohorts concreteSpeciesCohorts = (SpeciesCohorts)speciesCohorts;
+                    foreach (var (cohort, index) in concreteSpeciesCohorts.Select((cohort, index) => (cohort, index))) {
+                        Cohort concreteCohort = (Cohort)cohort;
+
+                        //process entry through matrix
+                        string transitionToSpecies = parameters.GetTransitionMatrixOutcome(speciesCohorts.Species.Name, !(debugOnlyOneTransferPerSitePerTimestep && hasTransitioned));
+
+                        //no transition will occur
+                        if (transitionToSpecies == null) {
+                            if (!newSiteCohortsDictionary.ContainsKey(speciesCohorts.Species)) {
+                                newSiteCohortsDictionary[speciesCohorts.Species] = new Dictionary<ushort, int>();
+                            }
+                            if (!newSiteCohortsDictionary[speciesCohorts.Species].ContainsKey(concreteCohort.Data.Age)) {
+                                newSiteCohortsDictionary[speciesCohorts.Species][concreteCohort.Data.Age] = 0;
+                            }
+                            newSiteCohortsDictionary[speciesCohorts.Species][concreteCohort.Data.Age] += concreteCohort.Data.Biomass;
+                            continue; //short-circuit
+                        }
+
+                        //transitions to dead
+                        if (transitionToSpecies.ToUpper() == "DEAD") {
+                            if (debugDisableDiseaseProgressionKill) {
+                                if (!newSiteCohortsDictionary.ContainsKey(speciesCohorts.Species)) {
+                                    newSiteCohortsDictionary[speciesCohorts.Species] = new Dictionary<ushort, int>();
+                                }
+                                if (!newSiteCohortsDictionary[speciesCohorts.Species].ContainsKey(concreteCohort.Data.Age)) {
+                                    newSiteCohortsDictionary[speciesCohorts.Species][concreteCohort.Data.Age] = 0;
+                                }
+                                newSiteCohortsDictionary[speciesCohorts.Species][concreteCohort.Data.Age] += concreteCohort.Data.Biomass;
+                                if (debugOutputTransitions) {
+                                    PlugIn.ModelCore.UI.WriteLine($"(inert) Transitioned to dead: Age: {concreteCohort.Data.Age}, Biomass: {concreteCohort.Data.Biomass}, Species: {speciesCohorts.Species.Name}");
+                                }
+                                hasTransitioned = true;
+                                continue; //short-circuit
+                            }
+
+                            Cohort.CohortMortality(concreteSpeciesCohorts, concreteCohort, site, null, 1f);
+                            if (debugOutputTransitions) {
+                                PlugIn.ModelCore.UI.WriteLine($"Transitioned to dead: Age: {concreteCohort.Data.Age}, Biomass: {concreteCohort.Data.Biomass}, Species: {speciesCohorts.Species.Name}");
+                            }
+                            
+                            hasTransitioned = true;
+                            continue; //short-circuit
+                        }
+
+                        double biomassTransferModifier = 0.3; //TODO: Switch to dynamic value for biomass transfer
+                        if (debugOnlyOneTransferPerSitePerTimestep && hasTransitioned) {
+                            biomassTransferModifier = 0.0;
+                        }
+                        if (debugOnlyOneTransferPerSitePerTimestep) {
+                            hasTransitioned = true;
+                        }
+
+                        //transitions to another species
+                        int transfer = (int)(concreteCohort.Data.Biomass * biomassTransferModifier);
+                        ISpecies targetSpecies = speciesNameToISpecies[transitionToSpecies];
+
+                        //push biomass to target species cohort
+                        if (!newSiteCohortsDictionary.ContainsKey(targetSpecies)) {
+                            newSiteCohortsDictionary[targetSpecies] = new Dictionary<ushort, int>();
+                        }
+                        if (!newSiteCohortsDictionary[targetSpecies].ContainsKey(concreteCohort.Data.Age)) {
+                            newSiteCohortsDictionary[targetSpecies][concreteCohort.Data.Age] = 0;
+                        }
+                        newSiteCohortsDictionary[targetSpecies][concreteCohort.Data.Age] += transfer;
+                        
+
+                        //push biomass to original species cohort
+                        if (!newSiteCohortsDictionary.ContainsKey(speciesCohorts.Species)) {
+                            newSiteCohortsDictionary[speciesCohorts.Species] = new Dictionary<ushort, int>();
+                        }
+                        if (!newSiteCohortsDictionary[speciesCohorts.Species].ContainsKey(concreteCohort.Data.Age)) {
+                            newSiteCohortsDictionary[speciesCohorts.Species][concreteCohort.Data.Age] = 0;
+                        }
+                        newSiteCohortsDictionary[speciesCohorts.Species][concreteCohort.Data.Age] += concreteCohort.Data.Biomass - transfer;
+                        if (debugOutputTransitions && transfer > 0) {
+                            PlugIn.ModelCore.UI.WriteLine($"Transferred {transfer} biomass from {speciesCohorts.Species.Name} to {targetSpecies.Name}");
+                        }
+                    }
+                }
+
+                //rewrite SiteCohorts() regardless of changes
+                //TODO: Create a clone of SiteCohorts minus the cohortData
+                //seemingly not necessary though
+                var newSiteCohorts = new SiteCohorts();
+                foreach (var species in newSiteCohortsDictionary) {
+                    foreach (var cohort in species.Value) {
+                        if (cohort.Value > 0) {
+                            newSiteCohorts.AddNewCohort(species.Key, cohort.Key, cohort.Value, new ExpandoObject());
+                        }
+                    }
+                }
+                foreach (ISpeciesCohorts speciesCohorts in newSiteCohorts) {
+                    SpeciesCohorts concreteSpeciesCohorts = (SpeciesCohorts)speciesCohorts;
+                    concreteSpeciesCohorts.UpdateMaturePresent();
+                }
+                if (debugDumpSiteInformation) {
+                    // Output existing state during timestep after any changes occur
+                    foreach (ISpeciesCohorts speciesCohorts in newSiteCohorts) {
+                        foreach (ICohort cohort in speciesCohorts) {
+                            PlugIn.ModelCore.UI.WriteLine($"After disease progression: Site: ({site.Location.Row},{site.Location.Column}), Species: {speciesCohorts.Species.Name}, Age: {cohort.Data.Age}, Biomass: {cohort.Data.Biomass}");
+                        }
+                    }
+                }
+                SiteVars.Cohorts[site] = newSiteCohorts;
+                foreach (var data in newSiteCohortsDictionary) {
+                    data.Value.Clear();
                 }
             }
-
-            // Clear list of cohorts to add after growth phase for later
-            siteCohortsToAdd.Clear();
         }
 
         //---------------------------------------------------------------------
@@ -184,19 +347,21 @@ namespace Landis.Extension.Succession.ForC
             ISpecies species = cohort.Species;
 
             double foliar = (double)cohort.ComputeNonWoodyBiomass(site);
-            double wood = ((double)cohort.Data.Biomass - foliar);
+            double wood = (double)cohort.Data.Biomass - foliar;
 
             if (eventArgs.Reduction >= 1)
             {
                 if (disturbanceType == null)
                 {
-
+                    //TODO
+                    // Look into whether this is intentional
+                    // Total root biomass is calculated, but never used?
                     double totalRoot = Roots.CalculateRootBiomass(site, species, cohort.Data.Biomass);
 
                     SiteVars.soilClass[site].CollectBiomassMortality(species, cohort.Data.Age, wood, foliar, 0);
                     SiteVars.soilClass[site].CollectBiomassMortality(species, cohort.Data.Age, Roots.CoarseRoot, Roots.FineRoot, 1);
-                    if (site.DataIndex == 1)
-                        PlugIn.ModelCore.UI.WriteLine("{0} Roots from dying cohort {1}", PlugIn.ModelCore.CurrentTime, Roots.FineRoot);
+                    /* if (site.DataIndex == 1)
+                        PlugIn.ModelCore.UI.WriteLine("{0} Roots from dying cohort {1}", PlugIn.ModelCore.CurrentTime, Roots.FineRoot); */
                 }
 
 
@@ -225,49 +390,6 @@ namespace Landis.Extension.Succession.ForC
                 //PlugIn.ModelCore.UI.WriteLine("Inputs:  {0}, {1}, {2}, {3}", fractionPartialMortality, foliar, woodInput, foliarInput);
 
                 SiteVars.soilClass[site].DisturbanceImpactsBiomass(site, cohort.Species, cohort.Data.Age, woodInput, foliarInput, disturbanceType.Name, 0);
-
-                //if (disturbanceType.IsMemberOf("disturbance:harvest"))
-                //{
-                //    if (!Disturbed[site]) // this is the first cohort killed/damaged
-                //    {
-                //        HarvestEffects.ReduceLayers(SiteVars.HarvestPrescriptionName[site], site);
-                //    }
-                //    SiteVars.soilClass[site].DisturbanceImpactsBiomass(site, cohort.Species, cohort.Age, wood, foliar, disturbanceType.Name, 0);
-                //    woodInput -= woodInput * (float)HarvestEffects.GetCohortWoodRemoval(site);
-                //    foliarInput -= foliarInput * (float)HarvestEffects.GetCohortLeafRemoval(site);
-                //}
-                //if (disturbanceType.IsMemberOf("disturbance:fire"))
-                //{
-
-                //    SiteVars.FireSeverity = PlugIn.ModelCore.GetSiteVar<byte>("Fire.Severity");
-
-                //    if (!Disturbed[site]) // this is the first cohort killed/damaged
-                //    {
-                //        SiteVars.SmolderConsumption[site] = 0.0;
-                //        SiteVars.FlamingConsumption[site] = 0.0;
-                //        if (SiteVars.FireSeverity != null && SiteVars.FireSeverity[site] > 0)
-                //            FireEffects.ReduceLayers(SiteVars.FireSeverity[site], site);
-
-                //    }
-
-                //    double live_woodFireConsumption = woodInput * (float)FireEffects.ReductionsTable[(int)SiteVars.FireSeverity[site]].CohortWoodReduction;
-                //    double live_foliarFireConsumption = foliarInput * (float)FireEffects.ReductionsTable[(int)SiteVars.FireSeverity[site]].CohortLeafReduction;
-
-                //    SiteVars.SmolderConsumption[site] += live_woodFireConsumption;
-                //    SiteVars.FlamingConsumption[site] += live_foliarFireConsumption;
-                //    woodInput -= (float)live_woodFireConsumption;
-                //    foliarInput -= (float)live_foliarFireConsumption;
-                //}
-
-                //ForestFloor.AddWoodLitter(woodInput, cohort.Species, site);
-                //ForestFloor.AddFoliageLitter(foliarInput, cohort.Species, site);
-
-                //Roots.AddCoarseRootLitter(Roots.CalculateCoarseRoot(cohort, cohort.WoodBiomass * fractionPartialMortality), cohort, cohort.Species, site);
-                //Roots.AddFineRootLitter(Roots.CalculateFineRoot(cohort, cohort.LeafBiomass * fractionPartialMortality), cohort, cohort.Species, site);
-
-                //PlugIn.ModelCore.UI.WriteLine("EVENT: Cohort Partial Mortality: species={0}, age={1}, disturbance={2}.", cohort.Species.Name, cohort.Age, disturbanceType);
-                //PlugIn.ModelCore.UI.WriteLine("       Cohort Reductions:  Foliar={0:0.00}.  Wood={1:0.00}.", HarvestEffects.GetCohortLeafRemoval(site), HarvestEffects.GetCohortLeafRemoval(site));
-                //PlugIn.ModelCore.UI.WriteLine("       InputB/TotalB:  Foliar={0:0.00}/{1:0.00}, Wood={2:0.0}/{3:0.0}.", foliarInput, cohort.LeafBiomass, woodInput, cohort.WoodBiomass);
                 Disturbed[site] = true;
             }
 

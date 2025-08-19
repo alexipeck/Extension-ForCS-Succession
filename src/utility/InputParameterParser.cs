@@ -5,6 +5,7 @@ using Landis.Core;
 using Landis.SpatialModeling;
 using System.Collections.Generic;
 using Landis.Utilities;
+using System;
 
 namespace Landis.Extension.Succession.ForC
 {
@@ -17,6 +18,7 @@ namespace Landis.Extension.Succession.ForC
         public static class Names
         {
             public const string Timestep = "Timestep";
+            public const string SpeciesMatrix = "SpeciesMatrix";
             public const string SeedingAlgorithm = "SeedingAlgorithm";
             public const string CalibrateMode = "CalibrateMode";
             public const string ClimateFile = "ClimateFile";
@@ -118,7 +120,7 @@ namespace Landis.Extension.Succession.ForC
 
             //ReadLandisDataVar();
             
-            InputParameters parameters = new InputParameters();  
+            InputParameters parameters = new InputParameters();
 
             //Get number of active ecoregions
             foreach (IEcoregion ecoregion in PlugIn.ModelCore.Ecoregions)
@@ -129,6 +131,101 @@ namespace Landis.Extension.Succession.ForC
             InputVar<int> timestep = new InputVar<int>(Names.Timestep);
             ReadVar(timestep);
             parameters.Timestep = timestep.Value;
+
+            ////////////////////
+            // species matrix
+
+            // read file
+            PlugIn.ModelCore.UI.WriteLine("Started reading species matrix file");
+            InputVar<string> speciesMatrixFile = new InputVar<string>(Names.SpeciesMatrix);
+            ReadVar(speciesMatrixFile);
+            
+            // dynamically sized matrix ingestion
+            var speciesTransitionMatrix = new Dictionary<string, List<(string, double)>>();
+            int lineNum = 0;
+            List<string> columnHeaders = null;
+            
+            foreach (var line in System.IO.File.ReadLines(speciesMatrixFile.Value)) {
+                lineNum++;
+                var trimmed = line.Trim();
+                if (string.IsNullOrEmpty(trimmed)) continue;
+                PlugIn.ModelCore.UI.WriteLine($"Processing line {lineNum}: {trimmed}");
+                
+                var columns = trimmed.Split(',');
+                PlugIn.ModelCore.UI.WriteLine($"Columns: {string.Join(", ", columns)}");
+                
+                if (lineNum == 1) {
+                    columnHeaders = new List<string>(columns);
+                    if (columnHeaders.Count < 3)
+                    {
+                        throw new InputValueException(speciesMatrixFile.Value, "Species matrix file must have at least 3 columns (source species, target species, and DEAD).");
+                    }
+                    if (columnHeaders[columnHeaders.Count - 1].ToUpper() != "DEAD")
+                    {
+                        throw new InputValueException(speciesMatrixFile.Value, "Last column must be 'DEAD' (case-insensitive).");
+                    }
+                    continue;
+                }
+                
+                var sourceSpecies = columns[0];
+                var found = false;
+                foreach (var species in speciesDataset) {
+                    if (species.Name == sourceSpecies)
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    throw new InputValueException(sourceSpecies, $"Species '{sourceSpecies}' on line {lineNum} of SpeciesMatrix file does not exist in scenario species list.");
+                }
+                
+                speciesTransitionMatrix[sourceSpecies] = new List<(string, double)>();
+                
+                for (int i = 1; i < columns.Length; i++) {
+                    if (!double.TryParse(columns[i], out double probability)) {
+                        throw new InputValueException(columns[i], $"Invalid probability value '{columns[i]}' on line {lineNum}, column {i + 1}.");
+                    }
+                    if (probability < 0.0) {
+                        throw new InputValueException(columns[i], $"Probability value '{columns[i]}' on line {lineNum}, column {i + 1} must not be less than 0.0");
+                    }
+                    if (probability > 1.0) {
+                        throw new InputValueException(columns[i], $"Probability value '{columns[i]}' on line {lineNum}, column {i + 1} must be less than or equal to 1.0");
+                    }
+                    
+                    var targetSpecies = columnHeaders[i];
+                    if (probability > 0.0) {
+                        speciesTransitionMatrix[sourceSpecies].Add((targetSpecies, probability));
+                    }
+                }
+            }
+            foreach (var species in speciesTransitionMatrix) {
+                double remainder = 1.0;
+                double totalProbability = 0.0;
+                foreach (var (key, value) in species.Value) {
+                    totalProbability += value;
+                    remainder -= value;
+                }
+                if (totalProbability > 1.0) {
+                    throw new InputValueException(species.Key, $"Probabilities for species '{species.Key}' must sum to 1.0 or less (current sum: {totalProbability}).");
+                }
+                species.Value.Insert(0, (null, remainder));
+            }
+            parameters.SpeciesTransitionMatrix = speciesTransitionMatrix;
+            
+            PlugIn.ModelCore.UI.WriteLine("Species Transition Matrix:");
+            foreach (var outerEntry in speciesTransitionMatrix)
+            {
+                PlugIn.ModelCore.UI.WriteLine($"  Source Species: {outerEntry.Key}");
+                foreach (var (key, value) in outerEntry.Value)
+                {
+                    if (outerEntry.Key != key) {
+                        PlugIn.ModelCore.UI.WriteLine($"    Target: {(key != null ? key : "null")}, Probability: {value * 100}%");
+                    }
+                }
+            }
+            
+            PlugIn.ModelCore.UI.WriteLine("Finished reading species matrix file");
 
             InputVar<SeedingAlgorithms> seedAlg = new InputVar<SeedingAlgorithms>(Names.SeedingAlgorithm);
             ReadVar(seedAlg);
@@ -762,10 +859,8 @@ namespace Landis.Extension.Succession.ForC
                 GetNextLine();
             }
              */
-          
             
-            
-            return parameters; 
+            return parameters;
         }
 
          /*protected void ReadDynamicTable(List<Dynamic.ParametersUpdate> parameterUpdates)

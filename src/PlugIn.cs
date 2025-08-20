@@ -184,14 +184,14 @@ namespace Landis.Extension.Succession.ForC
             ISpecies species = cohort.Species;
 
             double foliar = (double)cohort.ComputeNonWoodyBiomass(site);
-            double wood = ((double)cohort.Data.Biomass - foliar);
+            double wood = (double)cohort.Data.Biomass - foliar;
 
             if (eventArgs.Reduction >= 1)
             {
                 if (disturbanceType == null)
                 {
-
-                    double totalRoot = Roots.CalculateRootBiomass(site, species, cohort.Data.Biomass);
+                    //TODO: Return value is never used
+                    /* double totalRoot =  */Roots.CalculateRootBiomass(site, species, cohort.Data.Biomass);
 
                     SiteVars.soilClass[site].CollectBiomassMortality(species, cohort.Data.Age, wood, foliar, 0);
                     SiteVars.soilClass[site].CollectBiomassMortality(species, cohort.Data.Age, Roots.CoarseRoot, Roots.FineRoot, 1);
@@ -219,9 +219,8 @@ namespace Landis.Extension.Succession.ForC
             else
             {
                 float mortality = eventArgs.Reduction;
-                float fractionPartialMortality = mortality / (float)cohort.Data.Biomass;
-                double foliarInput = foliar * fractionPartialMortality;
-                double woodInput = wood * fractionPartialMortality;
+                double foliarInput = mortality * foliar;
+                double woodInput = mortality * wood;
                 //PlugIn.ModelCore.UI.WriteLine("Inputs:  {0}, {1}, {2}, {3}", fractionPartialMortality, foliar, woodInput, foliarInput);
 
                 SiteVars.soilClass[site].DisturbanceImpactsBiomass(site, cohort.Species, cohort.Data.Age, woodInput, foliarInput, disturbanceType.Name, 0);

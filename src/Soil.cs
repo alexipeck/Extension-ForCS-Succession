@@ -699,14 +699,15 @@ namespace Landis.Extension.Succession.ForC
             int idxDist = DistTypeIndex(DistTypeName);
             DisturbTransferFromPools oDisturbTransferPoolsBiomass;
             DisturbTransferFromPool oDisturbTransfer;
-            byte severity = 0;
-            string TransferName = "null";
+            byte severity/*  = 0 */;
+            string TransferName/*  = "null" */;
 
             double PropStem;
 
-            double totroot = Roots.CalculateRootBiomass(site, species, (wood+nonwood));
+            //TODO: Return value is never used
+            /* double totroot =  */Roots.CalculateRootBiomass(site, species, (wood+nonwood));
             double crsRoot = Roots.CoarseRoot * BIOTOC;
-            double fineRoot = Roots.FineRoot* BIOTOC;
+            double fineRoot = Roots.FineRoot * BIOTOC;
 
             double nonwoodC = nonwood * BIOTOC;   //turns biomass into C
             double woodC = wood * BIOTOC;
@@ -727,10 +728,10 @@ namespace Landis.Extension.Succession.ForC
                 {
                     System.Diagnostics.Debug.Assert(SiteVars.FireSeverity != null);
                     severity = SiteVars.FireSeverity[site];
-                    if (severity == 0)
+                    if (severity == 0) {
                         SiteVars.FireSeverity = PlugIn.ModelCore.GetSiteVar<byte>("Fire.Severity");
-                    if (severity == 0)
                         return;     //no impacts from a fire severity = 0
+                    }
                 }
                 else
                 {   //called during spin-up
@@ -782,7 +783,7 @@ namespace Landis.Extension.Succession.ForC
             }
 
             //before we start, determine the amount of this that is merchantable
-            PropStem = 0;
+            PropStem = 0.0;
             if (woodC > 0)
                 PropStem = DeadStemToSnagRates(species, age, woodC);
             
@@ -799,7 +800,7 @@ namespace Landis.Extension.Succession.ForC
                     amtC = woodC * (1 - PropStem);
                 else if (ipool == 3)        // sub merch - not being used
                 {
-                    amtC = 0;
+                    //amtC = 0;
                     continue;
                 }
                 else if (ipool == 4)        // coarse roots
@@ -853,13 +854,11 @@ namespace Landis.Extension.Succession.ForC
         *********************************************************************************************************************/
         public void DisturbanceImpactsDOM(ActiveSite site, string DistTypeName, int tmpFireSeverity)
         {
-            double loss = 0;
-            double tofps = 0;
-            double tofloor = 0;
+            double loss, tofps, tofloor;
             byte severity;
-            int idxDist = 0;
+            int idxDist;
             idxDist = DistTypeIndex(DistTypeName);
-            string TransferName = "null";
+            string TransferName;
 
             if (DistOccurred[idxDist])          //check to see if this disturbance has already occurred on this site in this year
                 return;                        //if so then don't disturb this site again. 
@@ -920,10 +919,11 @@ namespace Landis.Extension.Succession.ForC
 
             //Now that we have the information, let's actually do the transfers.
 
-            bool bPrintFlux;
+            //TODO: This is never read, why does it exist?
+            bool bPrintFlux/*  = false */;
 
             //set up the printing flags
-            bPrintFlux = false;
+            bPrintFlux = false; //TODO: Why is this set to false?
             if ((PlugIn.ModelCore.CurrentTime % SoilVars.iParams.OutputFlux == 0) || PlugIn.ModelCore.CurrentTime == 1)
                 bPrintFlux = true;
             if (PlugIn.ModelCore.CurrentTime == 0)
@@ -1156,6 +1156,8 @@ namespace Landis.Extension.Succession.ForC
         /// <returns></returns>
         public double DeadStemToSnagRates(ISpecies species, int age, double StemBio)
         {
+            //TODO: Why is stemBio passed in if it's never used?
+            //      Was dPropStep supposed to be the same value with a default of 0.0?
             double dPropStem = 0.0;
 
             if (age >= SoilVars.iParams.MerchStemsMinAge[species])
@@ -1602,7 +1604,7 @@ namespace Landis.Extension.Succession.ForC
                             //simulate the input from a stand-replacing event.
                             //NOTE: we are assuming a severity 4 fire.
                             {
-                                DisturbanceImpactsBiomass(site, species, iage, wood / BIOTOC, nonwood / BIOTOC, ":fire", 4);
+                                DisturbanceImpactsBiomass(site, species, iage, wood * BIOTOC, nonwood * BIOTOC, ":fire", 4);
                                 //DisturbanceImpactsDOM(site, ":fire", 4); //this has a species loop in it and should not be inside of one here
                             }
                         }

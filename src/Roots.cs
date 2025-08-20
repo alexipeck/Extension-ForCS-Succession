@@ -76,8 +76,7 @@ namespace Landis.Extension.Succession.ForC
         {
             IEcoregion ecoregion = PlugIn.ModelCore.Ecoregion[site];
 
-            double totalroot = 0.0;
-            int i = 0;
+            int i;
             for (i = 0; i < 4; i++)
             {
                 if (SpeciesData.MinWoodyBio[species][ecoregion][i + 1] > -999)
@@ -89,20 +88,20 @@ namespace Landis.Extension.Succession.ForC
                 else
                     break;
             }
-
-            totalroot = abio * SpeciesData.Ratio[species][ecoregion][i];
+            
+            double totalroot = abio * SpeciesData.Ratio[species][ecoregion][i];
             FineRoot = totalroot * SpeciesData.PropFine[species][ecoregion][i];
             CoarseRoot = totalroot - FineRoot;
-            return (totalroot);
+            return totalroot;
         }
 
         public static void CalculateRootTurnover(ActiveSite site, ISpecies species, double abio)
         {
             IEcoregion ecoregion = PlugIn.ModelCore.Ecoregion[site];
             
-            double totalroot = 0.0;
-            int i = 0;
-            totalroot = CalculateRootBiomass(site, species, abio);
+            int i;
+            //TODO: Return value is never used
+            /* double totalroot =  */CalculateRootBiomass(site, species, abio);
 
             for (i = 0; i < 4; i++)
             {

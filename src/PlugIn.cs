@@ -79,6 +79,7 @@ namespace Landis.Extension.Succession.ForC
        
         public override void Initialize()
         {
+            Log.Init();
             Timestep              = parameters.Timestep;
             sufficientLight       = parameters.LightClassProbabilities;
 
@@ -182,6 +183,8 @@ namespace Landis.Extension.Succession.ForC
 
             ICohort cohort = eventArgs.Cohort;
             ISpecies species = cohort.Species;
+
+            Log.SuccessionMortalityCSV(PlugIn.ModelCore.CurrentTime, species.Name, cohort.Data.Age, cohort.Data.Biomass);
 
             double foliar = (double)cohort.ComputeNonWoodyBiomass(site);
             double wood = (double)cohort.Data.Biomass - foliar;
